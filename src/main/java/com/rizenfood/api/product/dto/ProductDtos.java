@@ -40,7 +40,27 @@ public final class ProductDtos {
             String thumbnailUrl) {
     }
 
-    public record ImageItem(String url, String altText, String type) {
+    /**
+     * 관리자 목록 한 줄.
+     * 공개 목록과 달리 재고·노출 여부를 담는다.
+     * 재고 숫자는 공개하지 않는다(판매량 추정 우려). 관리자만 본다.
+     */
+    public record AdminListItem(
+            Long id,
+            String slug,
+            String nameKo,
+            int price,
+            Integer discountPrice,
+            int stock,
+            boolean soldOut,
+            boolean featured,
+            boolean visible,
+            int sortOrder,
+            String thumbnailUrl) {
+    }
+
+    /** baseKey 는 관리자 수정 폼이 기존 이미지를 다시 저장할 때 쓴다. */
+    public record ImageItem(String url, String baseKey, String altText, String type) {
     }
 
     public record OptionItem(Long id, String name, int price, int stock, boolean soldOut) {
@@ -72,6 +92,7 @@ public final class ProductDtos {
             String nameEn,
             String subtitle,
             String descriptionHtml,
+            String thumbnailKey,
             int price,
             Integer discountPrice,
             int effectivePrice,
@@ -79,6 +100,8 @@ public final class ProductDtos {
             Integer servings,
             int stock,
             boolean soldOut,
+            boolean featured,
+            boolean visible,
             List<ImageItem> images,
             List<OptionItem> options,
             NutritionItem nutrition,

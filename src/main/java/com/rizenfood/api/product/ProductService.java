@@ -54,8 +54,8 @@ public class ProductService {
     // ── 관리자 ───────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Page<ProductDtos.ListItem> listForAdmin(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toListItem);
+    public Page<ProductDtos.AdminListItem> listForAdmin(Pageable pageable) {
+        return repository.findAll(pageable).map(mapper::toAdminListItem);
     }
 
     @Transactional(readOnly = true)

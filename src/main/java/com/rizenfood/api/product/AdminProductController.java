@@ -48,7 +48,7 @@ public class AdminProductController {
     @GetMapping
     public Map<String, Object> list(@RequestParam(defaultValue = "0") int page,
                                     @RequestParam(defaultValue = "20") int size) {
-        Page<ProductDtos.ListItem> result = service.listForAdmin(
+        Page<ProductDtos.AdminListItem> result = service.listForAdmin(
                 PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 100),
                         Sort.by(Sort.Order.asc("sortOrder"), Sort.Order.desc("id"))));
 

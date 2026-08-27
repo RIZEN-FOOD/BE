@@ -32,12 +32,23 @@ public class ProductMapper {
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
     }
 
+    public ProductDtos.AdminListItem toAdminListItem(Product p) {
+        return new ProductDtos.AdminListItem(
+                p.getId(), p.getSlug(), p.getNameKo(),
+                p.getPrice(), p.getDiscountPrice(),
+                p.getStock() == null ? 0 : p.getStock(),
+                isSoldOut(p), p.isFeatured(), p.isVisible(), p.getSortOrder(),
+                variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
+    }
+
     public ProductDtos.Detail toDetail(Product p) {
         return new ProductDtos.Detail(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getDescriptionHtml(),
+                p.getThumbnailKey(),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
                 p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
+                p.isFeatured(), p.isVisible(),
                 map(p.getImages(), this::toImageItem),
                 map(p.getOptions().stream().filter(ProductOption::isVisible).toList(),
                         o -> toOptionItem(p, o)),
@@ -62,7 +73,8 @@ public class ProductMapper {
 
     private ProductDtos.ImageItem toImageItem(ProductImage i) {
         return new ProductDtos.ImageItem(
-                variantUrl(i.getImageKey(), ImageVariant.MEDIUM), i.getAltText(), i.getType());
+                variantUrl(i.getImageKey(), ImageVariant.MEDIUM),
+                i.getImageKey(), i.getAltText(), i.getType());
     }
 
     private ProductDtos.OptionItem toOptionItem(Product p, ProductOption o) {
