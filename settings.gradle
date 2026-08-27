@@ -1,0 +1,8 @@
+plugins {
+    // Gradle 이 build.gradle 의 toolchain(Java 21) 을 찾지 못하면
+    // 이 플러그인이 자동으로 JDK 21 을 내려받는다.
+    // 덕분에 개발자마다 JDK 를 따로 깔 필요가 없다.
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
+}
+
+rootProject.name = 'api'

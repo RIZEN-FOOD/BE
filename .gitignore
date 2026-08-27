@@ -1,0 +1,22 @@
+# ── 시크릿 (절대 커밋 금지) ──
+.env
+.env.*
+!.env.example
+
+# ── Gradle / Java ──
+.gradle/
+build/
+bin/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+
+# ── 로컬 업로드 폴백 ──
+# 운영은 S3 를 쓴다. 이 디렉터리는 로컬 개발에서만 생긴다.
+uploads/
+
+# ── IDE / OS ──
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db

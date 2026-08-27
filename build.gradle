@@ -1,0 +1,84 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.6'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'com.rizenfood'
+version = '0.0.1-SNAPSHOT'
+description = '라이즌푸드 API'
+
+java {
+    toolchain {
+        // Java 21 (LTS). 로컬에 없으면 settings.gradle 의 foojay 플러그인이 받아온다.
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Flyway: 스키마를 SQL 파일로 버전 관리한다 (Phase 2 에서 채운다).
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // HTML 살균. 에디터 입력은 저장 시 허용 목록 방식으로 걸러낸다.
+    // 저장형 XSS 의 주요 경로다 (기획서 §10).
+    implementation 'org.jsoup:jsoup:1.18.3'
+
+    // JWT. 토큰은 HttpOnly 쿠키로만 오간다. localStorage 금지 (기획서 §6.2).
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+
+    // 이미지 처리
+    // 리사이즈 품질이 ImageIO 기본보다 낫고 EXIF 회전도 처리해준다.
+    implementation 'net.coobird:thumbnailator:0.4.20'
+    // WebP 인코딩. 네이티브 라이브러리를 번들로 가지고 있다.
+    // ★ EC2(Linux)에서 실제로 로드되는지 배포 시 확인해야 한다.
+    //   실패하면 컨테이너에 cwebp 바이너리를 넣고 프로세스로 호출하는 방식으로 바꾼다.
+    implementation 'com.github.usefulness:webp-imageio:0.10.0'
+
+    // S3 업로드. 앱 서버는 파일을 서빙하지 않는다 (기획서 §10).
+    implementation platform('software.amazon.awssdk:bom:2.31.7')
+    implementation 'software.amazon.awssdk:s3'
+
+    runtimeOnly 'org.postgresql:postgresql'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << '-parameters'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ./gradlew bootRun 실행 시 레포 루트의 .env 를 읽어 환경변수로 넣는다.
+//  DB 비밀번호 같은 값을 application.yml 에 적지 않기 위한 장치다.
+//  .env 가 없으면 조용히 건너뛴다 (CI·운영에서는 실제 환경변수를 쓴다).
+// ─────────────────────────────────────────────────────────────
+tasks.named('bootRun') {
+    def envFile = rootProject.file('../.env')
+    if (envFile.exists()) {
+        envFile.readLines('UTF-8').each { line ->
+            def trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith('#') || !trimmed.contains('=')) return
+            def idx = trimmed.indexOf('=')
+            environment trimmed.substring(0, idx).trim(), trimmed.substring(idx + 1).trim()
+        }
+    }
+}

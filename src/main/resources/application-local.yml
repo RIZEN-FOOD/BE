@@ -1,0 +1,11 @@
+# 로컬 개발 전용 설정. 운영에는 적용되지 않는다.
+logging:
+  level:
+    org.hibernate.SQL: debug
+    org.springframework.security: debug
+
+spring:
+  jpa:
+    properties:
+      hibernate:
+        highlight_sql: true
