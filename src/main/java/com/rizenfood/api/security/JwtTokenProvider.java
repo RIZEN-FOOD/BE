@@ -90,7 +90,55 @@ public class JwtTokenProvider {
         return properties.adminExpiryMinutes() * 60;
     }
 
+    // ── 회원 토큰 ──────────────────────────────────────────────
+    //  audience 를 "member" 로 두어 관리자 토큰과 섞이지 않게 한다.
+    //  회원 access 토큰으로 관리자 API 에, 반대로도 들어가지 못한다.
+
+    public String createMemberAccessToken(Long memberId, String name) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusSeconds(properties.memberAccessMinutes() * 60);
+        return Jwts.builder()
+                .subject(String.valueOf(memberId))
+                .claim(CLAIM_NAME, name)
+                .audience().add("member").and()
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .signWith(key)
+                .compact();
+    }
+
+    public Optional<AuthenticatedMember> parseMemberToken(String token) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .requireAudience("member")
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return Optional.of(new AuthenticatedMember(
+                    Long.valueOf(claims.getSubject()),
+                    claims.get(CLAIM_NAME, String.class)));
+        } catch (JwtException | IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    public long memberAccessSeconds() {
+        return properties.memberAccessMinutes() * 60;
+    }
+
+    public long memberRefreshSeconds() {
+        return properties.memberRefreshDays() * 86400;
+    }
+
     /** 토큰에서 꺼낸 관리자 정보 */
     public record AuthenticatedAdmin(Long id, String displayName, String role) {
+    }
+
+    /** 토큰에서 꺼낸 회원 정보 */
+    public record AuthenticatedMember(Long id, String name) {
     }
 }

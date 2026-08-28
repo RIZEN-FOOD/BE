@@ -57,6 +57,9 @@ public class SecurityConfig {
                         .requestMatchers("/healthz").permitAll()
                         // 로그인·로그아웃은 토큰이 없는 상태에서 호출된다
                         .requestMatchers("/api/admin/auth/login", "/api/admin/auth/logout").permitAll()
+                        // 회원 가입·로그인·재발급·중복확인은 토큰 없이 호출된다
+                        .requestMatchers("/api/auth/signup", "/api/auth/login",
+                                "/api/auth/refresh", "/api/auth/check-email").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 공개 조회는 열어둔다. 쓰기는 위 규칙에 걸린다.

@@ -45,6 +45,8 @@ app:
     #   32바이트 이상이어야 하고, 짧으면 서버가 아예 뜨지 않는다.
     secret: ${JWT_SECRET:}
     admin-expiry-minutes: 240
+    member-access-minutes: 30
+    member-refresh-days: 14
     # 운영은 반드시 true. HTTPS 로만 쿠키가 오간다.
     secure-cookie: ${JWT_SECURE_COOKIE:false}
     same-site: Lax
@@ -56,6 +58,10 @@ app:
       username: ${ADMIN_BOOTSTRAP_USERNAME:}
       password: ${ADMIN_BOOTSTRAP_PASSWORD:}
       display-name: ${ADMIN_BOOTSTRAP_NAME:관리자}
+
+  crypto:
+    # 휴대폰 번호 암호화 키 (base64 32바이트). .env 로만 넣는다.
+    phone-key: ${PHONE_ENC_KEY:}
 
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}

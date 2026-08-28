@@ -18,7 +18,11 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthCookies {
 
     public static final String ADMIN_TOKEN = "rizen_admin_token";
+    public static final String MEMBER_ACCESS = "rizen_member_token";
+    public static final String MEMBER_REFRESH = "rizen_member_refresh";
     private static final String ADMIN_PATH = "/";
+    /** 리프레시 토큰은 재발급 엔드포인트에만 실리게 경로를 좁힌다. */
+    private static final String REFRESH_PATH = "/api/auth";
 
     private final JwtProperties properties;
 
@@ -42,12 +46,55 @@ public class AuthCookies {
     }
 
     public String readAdminToken(HttpServletRequest request) {
+        return read(request, ADMIN_TOKEN);
+    }
+
+    // ── 회원 쿠키 ──────────────────────────────────────────────
+
+    public ResponseCookie memberAccess(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(MEMBER_ACCESS, token)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(ADMIN_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    public ResponseCookie memberRefresh(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(MEMBER_REFRESH, token)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(REFRESH_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    /** 로그아웃. 두 쿠키를 같은 속성으로 만료시킨다. */
+    public ResponseCookie expiredMemberAccess() {
+        return memberAccess("", 0);
+    }
+
+    public ResponseCookie expiredMemberRefresh() {
+        return memberRefresh("", 0);
+    }
+
+    public String readMemberAccess(HttpServletRequest request) {
+        return read(request, MEMBER_ACCESS);
+    }
+
+    public String readMemberRefresh(HttpServletRequest request) {
+        return read(request, MEMBER_REFRESH);
+    }
+
+    private String read(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
             return null;
         }
         for (Cookie cookie : cookies) {
-            if (ADMIN_TOKEN.equals(cookie.getName())) {
+            if (name.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }

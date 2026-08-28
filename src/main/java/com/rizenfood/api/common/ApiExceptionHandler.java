@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -77,6 +78,17 @@ public class ApiExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of(
                 "error", "MALFORMED_REQUEST",
                 "message", "요청 형식이 올바르지 않습니다. 본문이 UTF-8 JSON 인지 확인해 주세요."));
+    }
+
+    /**
+     * 권한 부족 (@PreAuthorize 거부).
+     * 인증은 됐지만 권한이 없는 경우다. 403 으로 준다.
+     * 이걸 잡지 않으면 아래 Exception 핸들러가 500 으로 처리해 버린다.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "FORBIDDEN", "message", "이 작업을 수행할 권한이 없습니다."));
     }
 
     @ExceptionHandler(Exception.class)
