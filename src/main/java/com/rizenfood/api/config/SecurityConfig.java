@@ -60,10 +60,16 @@ public class SecurityConfig {
                         // 회원 가입·로그인·재발급·중복확인은 토큰 없이 호출된다
                         .requestMatchers("/api/auth/signup", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/check-email").permitAll()
+                        // 문의 접수는 비회원도 할 수 있다. 로그인 상태면 필터가 인증 정보를 심어주지만
+                        // 이 경로 자체는 토큰이 없어도 통과해야 한다.
+                        .requestMatchers("/api/inquiries").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
+                        // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.
+                        .requestMatchers("/api/member/**").authenticated()
                         // 공개 조회는 열어둔다. 쓰기는 위 규칙에 걸린다.
-                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**", "/api/banners/**")
+                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**",
+                                "/api/banners/**", "/api/reviews/**", "/api/settings/**")
                         .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authEntryPoint))
