@@ -66,6 +66,10 @@ public class SecurityConfig {
                         // 장바구니도 비회원이 쓴다. 회원이면 필터가 심어준 인증 정보를
                         // 컨트롤러가 읽어 회원 장바구니로 잇는다.
                         .requestMatchers("/api/cart/**").permitAll()
+                        // 주문 생성·조회·결제도 비회원 허용. 회원 주문 소유권은 서비스가 검사하고,
+                        // 비회원 주문은 추측 불가능한 주문번호로만 접근한다.
+                        // (회원 주문 목록 /api/member/orders 는 아래 인증 규칙에 걸린다)
+                        .requestMatchers("/api/orders/**").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.

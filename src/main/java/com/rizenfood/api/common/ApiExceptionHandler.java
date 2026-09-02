@@ -42,6 +42,14 @@ public class ApiExceptionHandler {
                 .body(Map.of("error", "DUPLICATE_SLUG", "message", e.getMessage()));
     }
 
+    /** 재고 부족으로 주문을 확정하지 못한 경우. */
+    @ExceptionHandler(com.rizenfood.api.order.OrderService.OutOfStockException.class)
+    public ResponseEntity<Map<String, String>> handleOutOfStock(
+            com.rizenfood.api.order.OrderService.OutOfStockException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("error", "OUT_OF_STOCK", "message", e.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest()

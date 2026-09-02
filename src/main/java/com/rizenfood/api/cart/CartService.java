@@ -56,6 +56,15 @@ public class CartService {
                 .orElseGet(() -> cartRepository.save(Cart.forMember(memberId)));
     }
 
+    /** 게스트 장바구니를 있는 그대로 찾는다(없으면 비어 있음). 주문 시 조회용. */
+    @Transactional(readOnly = true)
+    public Optional<Cart> findGuestCart(String guestToken) {
+        if (guestToken == null || guestToken.isBlank()) {
+            return Optional.empty();
+        }
+        return cartRepository.findByGuestToken(guestToken);
+    }
+
     /** 게스트 장바구니. 토큰이 없거나 해당 장바구니가 없으면 새로 만든다. */
     @Transactional
     public Cart resolveGuestCart(String guestToken, String freshTokenIfMissing) {
