@@ -63,6 +63,9 @@ public class SecurityConfig {
                         // 문의 접수는 비회원도 할 수 있다. 로그인 상태면 필터가 인증 정보를 심어주지만
                         // 이 경로 자체는 토큰이 없어도 통과해야 한다.
                         .requestMatchers("/api/inquiries").permitAll()
+                        // 장바구니도 비회원이 쓴다. 회원이면 필터가 심어준 인증 정보를
+                        // 컨트롤러가 읽어 회원 장바구니로 잇는다.
+                        .requestMatchers("/api/cart/**").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.
