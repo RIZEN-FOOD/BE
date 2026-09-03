@@ -14,6 +14,7 @@ import com.rizenfood.api.cart.CartItemRepository;
 import com.rizenfood.api.common.NotFoundException;
 import com.rizenfood.api.image.ImageService;
 import com.rizenfood.api.member.PhoneCipher;
+import com.rizenfood.api.order.dto.AdminOrderDtos;
 import com.rizenfood.api.order.dto.OrderDtos;
 import com.rizenfood.api.payment.Payment;
 import com.rizenfood.api.payment.PaymentGateway;
@@ -46,6 +47,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final StockLedgerRepository stockLedgerRepository;
     private final PaymentRepository paymentRepository;
+    private final DeliveryRepository deliveryRepository;
     private final ShippingPolicyRepository shippingPolicyRepository;
     private final ImageService imageService;
     private final PhoneCipher phoneCipher;
@@ -58,6 +60,7 @@ public class OrderService {
                         OrderRepository orderRepository,
                         StockLedgerRepository stockLedgerRepository,
                         PaymentRepository paymentRepository,
+                        DeliveryRepository deliveryRepository,
                         ShippingPolicyRepository shippingPolicyRepository,
                         ImageService imageService,
                         PhoneCipher phoneCipher,
@@ -69,6 +72,7 @@ public class OrderService {
         this.orderRepository = orderRepository;
         this.stockLedgerRepository = stockLedgerRepository;
         this.paymentRepository = paymentRepository;
+        this.deliveryRepository = deliveryRepository;
         this.shippingPolicyRepository = shippingPolicyRepository;
         this.imageService = imageService;
         this.phoneCipher = phoneCipher;
@@ -255,6 +259,92 @@ public class OrderService {
             }
         }
         return order;
+    }
+
+    // ── 관리자 ────────────────────────────────────────────────
+
+    /** 관리자가 지정할 수 있는 상태. 결제 전(PENDING)·환불은 별도 흐름이라 제외. */
+    private static final java.util.Set<String> ADMIN_SETTABLE = java.util.Set.of(
+            "PAID", "PREPARING", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED");
+
+    @Transactional(readOnly = true)
+    public Page<AdminOrderDtos.Summary> adminList(String status, Pageable pageable) {
+        Page<Order> page = (status == null || status.isBlank())
+                ? orderRepository.findAllByOrderByOrderedAtDesc(pageable)
+                : orderRepository.findByStatusOrderByOrderedAtDesc(status, pageable);
+        return page.map(o -> {
+            String payStatus = paymentRepository.findByOrderId(o.getId())
+                    .map(Payment::getStatus).orElse(null);
+            List<OrderItem> its = o.getItems();
+            String title = its.isEmpty() ? "주문" : its.get(0).getProductNameSnapshot();
+            if (its.size() > 1) title += " 외 " + (its.size() - 1) + "건";
+            return new AdminOrderDtos.Summary(
+                    o.getOrderNo(), o.getStatus(), o.getOrdererName(), its.size(), title,
+                    o.getTotalAmount(), payStatus, o.getOrderedAt(), o.getPaidAt());
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public AdminOrderDtos.Detail adminGet(String orderNo) {
+        Order o = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
+
+        List<OrderDtos.ItemView> items = o.getItems().stream()
+                .map(it -> new OrderDtos.ItemView(
+                        it.getProductId(), null, it.getProductNameSnapshot(),
+                        it.getOptionNameSnapshot(), thumbUrl(it.getThumbnailKeySnapshot()),
+                        it.getUnitPriceSnapshot(), it.getQuantity(), it.getLineAmount()))
+                .toList();
+
+        AdminOrderDtos.PaymentInfo pay = paymentRepository.findByOrderId(o.getId())
+                .map(p -> new AdminOrderDtos.PaymentInfo(p.getStatus(), p.getPgProvider(),
+                        p.getMethod(), p.getAmount(), p.getApprovedAt()))
+                .orElse(null);
+
+        AdminOrderDtos.DeliveryInfo del = deliveryRepository.findByOrderId(o.getId())
+                .map(d -> new AdminOrderDtos.DeliveryInfo(d.getStatus(), d.getCarrier(),
+                        d.getTrackingNo(), d.getShippedAt(), d.getDeliveredAt()))
+                .orElse(null);
+
+        // 배송 처리를 위해 사업자 본인에게는 연락처·주소를 복호화해 보여준다.
+        return new AdminOrderDtos.Detail(
+                o.getOrderNo(), o.getStatus(),
+                o.getOrdererName(), plain(o.getOrdererPhoneEncrypted()), o.getOrdererEmail(),
+                o.getReceiverName(), plain(o.getReceiverPhoneEncrypted()),
+                o.getZipcode(), o.getAddr1(), o.getAddr2(), o.getDeliveryMemo(),
+                o.getItemsAmount(), o.getShippingFee(), o.getDiscountAmount(), o.getTotalAmount(),
+                o.getOrderedAt(), o.getPaidAt(), items, pay, del);
+    }
+
+    @Transactional
+    public void adminChangeStatus(String orderNo, String status) {
+        if (!ADMIN_SETTABLE.contains(status)) {
+            throw new IllegalArgumentException("지정할 수 없는 상태입니다.");
+        }
+        Order o = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
+        o.applyStatus(status);
+    }
+
+    @Transactional
+    public void adminShip(String orderNo, String carrier, String trackingNo) {
+        Order o = orderRepository.findByOrderNo(orderNo)
+                .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
+
+        Delivery delivery = deliveryRepository.findByOrderId(o.getId())
+                .orElseGet(() -> deliveryRepository.save(new Delivery(o.getId())));
+        delivery.ship(carrier, trackingNo);
+        o.applyStatus(Order.Status.SHIPPED.name());
+    }
+
+    /** 관리자 상세 표시용 복호화. 실패하면 빈 문자열. */
+    private String plain(String encrypted) {
+        if (encrypted == null) return null;
+        try {
+            return phoneCipher.decrypt(encrypted);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── 매핑 ──────────────────────────────────────────────────

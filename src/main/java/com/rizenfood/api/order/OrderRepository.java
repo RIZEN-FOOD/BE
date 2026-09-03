@@ -17,4 +17,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean existsByOrderNo(String orderNo);
 
     Page<Order> findByMemberIdOrderByOrderedAtDesc(Long memberId, Pageable pageable);
+
+    // ── 관리자 ──
+    Page<Order> findAllByOrderByOrderedAtDesc(Pageable pageable);
+
+    Page<Order> findByStatusOrderByOrderedAtDesc(String status, Pageable pageable);
 }

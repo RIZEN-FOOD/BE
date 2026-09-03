@@ -120,6 +120,18 @@ public class Order {
         this.updatedAt = Instant.now();
     }
 
+    /** 관리자가 상태를 바꾼다. 상태에 맞는 시각도 함께 남긴다. */
+    public void applyStatus(String next) {
+        this.status = next;
+        this.updatedAt = Instant.now();
+        if (Status.PAID.name().equals(next) && paidAt == null) {
+            this.paidAt = Instant.now();
+        }
+        if (Status.CANCELLED.name().equals(next) && cancelledAt == null) {
+            this.cancelledAt = Instant.now();
+        }
+    }
+
     public boolean isPending() {
         return Status.PENDING.name().equals(status);
     }
