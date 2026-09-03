@@ -55,6 +55,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/healthz").permitAll()
+                        // 업로드 이미지(상품·배너 등)는 공개로 읽힌다. 로컬 서빙은 WebConfig.
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         // 로그인·로그아웃은 토큰이 없는 상태에서 호출된다
                         .requestMatchers("/api/admin/auth/login", "/api/admin/auth/logout").permitAll()
                         // 회원 가입·로그인·재발급·중복확인은 토큰 없이 호출된다
