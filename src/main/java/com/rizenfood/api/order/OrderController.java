@@ -9,8 +9,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 import com.rizenfood.api.cart.Cart;
 import com.rizenfood.api.cart.CartService;
+import com.rizenfood.api.order.dto.ClaimDtos;
 import com.rizenfood.api.order.dto.OrderDtos;
 import com.rizenfood.api.security.AuthCookies;
 import com.rizenfood.api.security.JwtTokenProvider;
@@ -31,11 +34,14 @@ import jakarta.validation.Valid;
 public class OrderController {
 
     private final OrderService orderService;
+    private final ClaimService claimService;
     private final CartService cartService;
     private final AuthCookies cookies;
 
-    public OrderController(OrderService orderService, CartService cartService, AuthCookies cookies) {
+    public OrderController(OrderService orderService, ClaimService claimService,
+                          CartService cartService, AuthCookies cookies) {
         this.orderService = orderService;
+        this.claimService = claimService;
         this.cartService = cartService;
         this.cookies = cookies;
     }
@@ -66,6 +72,24 @@ public class OrderController {
             @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me) {
         return orderService.pay(orderNo, me != null ? me.id() : null,
                 req != null ? req : new OrderDtos.PayRequest(null));
+    }
+
+    // ── 취소·반품·교환 ────────────────────────────────────────
+
+    @PostMapping("/{orderNo}/claims")
+    public ResponseEntity<ClaimDtos.View> createClaim(
+            @PathVariable String orderNo,
+            @Valid @RequestBody ClaimDtos.CreateRequest req,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me) {
+        ClaimDtos.View view = claimService.create(orderNo, me != null ? me.id() : null, req);
+        return ResponseEntity.status(201).body(view);
+    }
+
+    @GetMapping("/{orderNo}/claims")
+    public List<ClaimDtos.View> listClaims(
+            @PathVariable String orderNo,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me) {
+        return claimService.listForOrder(orderNo, me != null ? me.id() : null);
     }
 
     /** 주문에 쓸 장바구니 id. 회원은 자기 장바구니, 게스트는 쿠키의 장바구니. */

@@ -21,4 +21,8 @@ public interface ProductOptionRepository extends JpaRepository<ProductOption, Lo
     /** 차감 직후 잔량. 스칼라 조회라 DB 값을 읽는다. */
     @Query("select o.stock from ProductOption o where o.id = :id")
     Integer currentStock(@Param("id") Long id);
+
+    @Modifying
+    @Query("update ProductOption o set o.stock = o.stock + :qty where o.id = :id")
+    int increaseStock(@Param("id") Long id, @Param("qty") int qty);
 }

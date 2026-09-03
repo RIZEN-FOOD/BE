@@ -26,6 +26,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("select p.stock from Product p where p.id = :id")
     Integer currentStock(@Param("id") Long id);
 
+    /** 취소·반품 시 재고 복원. */
+    @Modifying
+    @Query("update Product p set p.stock = p.stock + :qty where p.id = :id")
+    int increaseStock(@Param("id") Long id, @Param("qty") int qty);
+
     /** 공개 목록. visible=true 만 나간다. */
     Page<Product> findByVisibleTrue(Pageable pageable);
 
