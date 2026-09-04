@@ -17,11 +17,27 @@ public class ReviewMapper {
 
     public ReviewDtos.Item toItem(Review r) {
         return new ReviewDtos.Item(
-                r.getId(), r.getAuthorName(), r.getRating(), r.getContent(),
+                r.getId(), maskName(r.getAuthorName()), r.getRating(), r.getContent(),
                 r.isVerifiedPurchase(), r.isSponsored(),
                 r.getImages().stream().map(this::imageUrl).toList(),
                 r.getCreatedAt(),
                 r.getProduct().getSlug(), r.getProduct().getNameKo(), thumbnailUrl(r));
+    }
+
+    /**
+     * 공개 후기의 작성자 이름을 가린다 — 앞 글자만 남기고 나머지는 * 로 처리.
+     * 개인정보 노출을 줄인다 (예: 김도현 → 김**, 이수 → 이*).
+     * 관리자용(toAdminItem)에는 적용하지 않는다.
+     */
+    private String maskName(String name) {
+        if (name == null || name.isBlank()) {
+            return "익명";
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() == 1) {
+            return trimmed;
+        }
+        return trimmed.charAt(0) + "*".repeat(trimmed.length() - 1);
     }
 
     public ReviewDtos.AdminItem toAdminItem(Review r) {
