@@ -18,6 +18,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Page<Order> findByMemberIdOrderByOrderedAtDesc(Long memberId, Pageable pageable);
 
+    /** 회원별 주문 건수 (관리자 회원 상세의 주문 요약). */
+    long countByMemberId(Long memberId);
+
     // ── 관리자 ──
     Page<Order> findAllByOrderByOrderedAtDesc(Pageable pageable);
 

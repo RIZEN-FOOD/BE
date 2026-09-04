@@ -118,6 +118,10 @@ public class Member {
         return "WITHDRAWN".equals(status);
     }
 
+    public boolean isSuspended() {
+        return "SUSPENDED".equals(status);
+    }
+
     public void recordLoginFailure() {
         this.failedCount += 1;
         if (this.failedCount >= MAX_FAILED_ATTEMPTS) {
@@ -131,6 +135,25 @@ public class Member {
         this.failedCount = 0;
         this.lockedUntil = null;
         this.lastLoginAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
+    /** 관리자: 로그인 실패 누적 잠금을 해제한다. */
+    public void adminUnlock() {
+        this.failedCount = 0;
+        this.lockedUntil = null;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 관리자: 계정을 정지한다(로그인 차단). 탈퇴 회원에는 쓰지 않는다. */
+    public void adminSuspend() {
+        this.status = "SUSPENDED";
+        this.updatedAt = Instant.now();
+    }
+
+    /** 관리자: 정지를 풀어 다시 활성화한다. */
+    public void adminReactivate() {
+        this.status = "ACTIVE";
         this.updatedAt = Instant.now();
     }
 
@@ -178,6 +201,12 @@ public class Member {
     public String getProvider() { return provider; }
     public String getStatus() { return status; }
     public int getFailedCount() { return failedCount; }
+    public Instant getTermsAgreedAt() { return termsAgreedAt; }
+    public Instant getPrivacyAgreedAt() { return privacyAgreedAt; }
     public Instant getMarketingAgreedAt() { return marketingAgreedAt; }
+    public Instant getAgeVerifiedAt() { return ageVerifiedAt; }
+    public Instant getLockedUntil() { return lockedUntil; }
+    public Instant getLastLoginAt() { return lastLoginAt; }
+    public Instant getWithdrawnAt() { return withdrawnAt; }
     public Instant getCreatedAt() { return createdAt; }
 }

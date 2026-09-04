@@ -98,6 +98,9 @@ public class MemberAuthService {
         if (member.isWithdrawn()) {
             throw new MemberAuthException("탈퇴한 계정입니다.");
         }
+        if (member.isSuspended()) {
+            throw new MemberAuthException("이용이 정지된 계정입니다. 고객센터로 문의해 주세요.");
+        }
         if (member.isLocked()) {
             throw new MemberAuthException(
                     "로그인 시도가 너무 많습니다. " + member.lockRemainingMinutes() + "분 후에 다시 시도해 주세요.");
