@@ -58,6 +58,17 @@ public class ShippingPolicy {
         return baseFee;
     }
 
+    /**
+     * 관리자 수정. 금액 항목만 바꾼다. 활성 여부(visible)는 건드리지 않는다
+     * — 유일한 활성 정책이 사라져 결제 배송비가 0으로 새는 것을 막기 위해서다.
+     */
+    public void update(String name, int baseFee, Integer freeThreshold, int islandExtraFee) {
+        this.name = name;
+        this.baseFee = baseFee;
+        this.freeThreshold = freeThreshold;
+        this.islandExtraFee = islandExtraFee;
+    }
+
     public Long getId() {
         return id;
     }
