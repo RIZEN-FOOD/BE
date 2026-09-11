@@ -161,6 +161,7 @@ public class ProductService {
         p.setHeroImageKey(blankToNull(r.heroImageKey()));
         p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
         p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));
+        p.setHeroBackdropKey(blankToNull(r.heroBackdropKey()));
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
         p.touch();

@@ -50,6 +50,7 @@ public final class ProductDtos {
             boolean soldOut,
             String heroColor,
             String heroImageUrl,
+            String heroBackdropUrl,
             List<String> accentImageUrls) {
     }
 
@@ -113,6 +114,8 @@ public final class ProductDtos {
             String heroAccent1Url,
             String heroAccent2Key,
             String heroAccent2Url,
+            String heroBackdropKey,
+            String heroBackdropUrl,
             int price,
             Integer discountPrice,
             int effectivePrice,
@@ -216,6 +219,7 @@ public final class ProductDtos {
             String heroImageKey,
             String heroAccent1Key,
             String heroAccent2Key,
+            String heroBackdropKey,
 
             boolean featured,
             boolean visible,

@@ -56,6 +56,7 @@ public class ProductMapper {
                 p.effectivePrice(), isSoldOut(p),
                 p.getHeroColor(),
                 variantUrl(heroKey, ImageVariant.MEDIUM),
+                variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 accents);
     }
 
@@ -71,6 +72,8 @@ public class ProductMapper {
                 variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
                 p.getHeroAccent2Key(),
                 variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM),
+                p.getHeroBackdropKey(),
+                variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
                 p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
                 p.isFeatured(), p.isVisible(),
