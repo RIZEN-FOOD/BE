@@ -40,7 +40,7 @@ public final class ProductDtos {
             String thumbnailUrl) {
     }
 
-    /** 메인 히어로 캐러셀 한 장. 제품별 배경색 + 누끼 이미지. */
+    /** 메인 히어로 캐러셀 한 장. 제품별 배경색 + 누끼 이미지 + 떠다니는 장식들. */
     public record HeroSlide(
             Long id,
             String slug,
@@ -49,7 +49,8 @@ public final class ProductDtos {
             int effectivePrice,
             boolean soldOut,
             String heroColor,
-            String heroImageUrl) {
+            String heroImageUrl,
+            List<String> accentImageUrls) {
     }
 
     /**
@@ -108,6 +109,10 @@ public final class ProductDtos {
             String heroColor,
             String heroImageKey,
             String heroImageUrl,
+            String heroAccent1Key,
+            String heroAccent1Url,
+            String heroAccent2Key,
+            String heroAccent2Url,
             int price,
             Integer discountPrice,
             int effectivePrice,
@@ -209,6 +214,8 @@ public final class ProductDtos {
                     message = "배경색은 #RRGGBB 형식이어야 합니다.")
             String heroColor,
             String heroImageKey,
+            String heroAccent1Key,
+            String heroAccent2Key,
 
             boolean featured,
             boolean visible,

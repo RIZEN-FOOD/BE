@@ -135,6 +135,10 @@ public class ProductService {
     }
 
     /** 요청 값을 엔티티에 옮긴다. */
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
     private void apply(Product p, ProductDtos.SaveRequest r) {
         if (r.discountPrice() != null && r.discountPrice() > r.price()) {
             throw new IllegalArgumentException("할인가가 정가보다 클 수 없습니다.");
@@ -154,7 +158,9 @@ public class ProductService {
         p.setStock(r.stock() == null ? 0 : r.stock());
         p.setThumbnailKey(r.thumbnailKey());
         p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
-        p.setHeroImageKey(r.heroImageKey() == null || r.heroImageKey().isBlank() ? null : r.heroImageKey());
+        p.setHeroImageKey(blankToNull(r.heroImageKey()));
+        p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
+        p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
         p.touch();

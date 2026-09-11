@@ -46,11 +46,17 @@ public class ProductMapper {
         String heroKey = (p.getHeroImageKey() != null && !p.getHeroImageKey().isBlank())
                 ? p.getHeroImageKey()
                 : p.getThumbnailKey();
+        List<String> accents = java.util.stream.Stream.of(
+                        variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                        variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM))
+                .filter(java.util.Objects::nonNull)
+                .toList();
         return new ProductDtos.HeroSlide(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getSubtitle(),
                 p.effectivePrice(), isSoldOut(p),
                 p.getHeroColor(),
-                variantUrl(heroKey, ImageVariant.MEDIUM));
+                variantUrl(heroKey, ImageVariant.MEDIUM),
+                accents);
     }
 
     public ProductDtos.Detail toDetail(Product p) {
@@ -61,6 +67,10 @@ public class ProductMapper {
                 p.getHeroColor(),
                 p.getHeroImageKey(),
                 variantUrl(p.getHeroImageKey(), ImageVariant.MEDIUM),
+                p.getHeroAccent1Key(),
+                variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent2Key(),
+                variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
                 p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
                 p.isFeatured(), p.isVisible(),

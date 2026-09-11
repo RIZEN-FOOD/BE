@@ -77,6 +77,13 @@ public class Product {
     @Column(name = "hero_image_key", length = 500)
     private String heroImageKey;
 
+    /** 히어로 슬라이드 장식(떠다니는 재료) 이미지 키. 선택. */
+    @Column(name = "hero_accent1_key", length = 500)
+    private String heroAccent1Key;
+
+    @Column(name = "hero_accent2_key", length = 500)
+    private String heroAccent2Key;
+
     /** 메인 페이지 노출 */
     @Column(name = "is_featured", nullable = false)
     private boolean featured = false;
@@ -189,6 +196,8 @@ public class Product {
     public String getThumbnailKey() { return thumbnailKey; }
     public String getHeroColor() { return heroColor; }
     public String getHeroImageKey() { return heroImageKey; }
+    public String getHeroAccent1Key() { return heroAccent1Key; }
+    public String getHeroAccent2Key() { return heroAccent2Key; }
     public boolean isFeatured() { return featured; }
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
@@ -213,6 +222,8 @@ public class Product {
     public void setThumbnailKey(String thumbnailKey) { this.thumbnailKey = thumbnailKey; }
     public void setHeroColor(String heroColor) { this.heroColor = heroColor; }
     public void setHeroImageKey(String heroImageKey) { this.heroImageKey = heroImageKey; }
+    public void setHeroAccent1Key(String heroAccent1Key) { this.heroAccent1Key = heroAccent1Key; }
+    public void setHeroAccent2Key(String heroAccent2Key) { this.heroAccent2Key = heroAccent2Key; }
     public void setFeatured(boolean featured) { this.featured = featured; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }
