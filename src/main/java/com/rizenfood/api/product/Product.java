@@ -99,6 +99,10 @@ public class Product {
     @Column(nullable = false)
     private boolean visible = false;
 
+    /** 관리자 수동 품절. 재고와 무관하게 강제로 품절 처리한다. */
+    @Column(name = "sold_out", nullable = false)
+    private boolean soldOut = false;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -206,6 +210,7 @@ public class Product {
     public boolean isFeatured() { return featured; }
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
+    public boolean isSoldOut() { return soldOut; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ProductImage> getImages() { return images; }
     public List<ProductOption> getOptions() { return options; }
@@ -233,4 +238,5 @@ public class Product {
     public void setFeatured(boolean featured) { this.featured = featured; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }
+    public void setSoldOut(boolean soldOut) { this.soldOut = soldOut; }
 }

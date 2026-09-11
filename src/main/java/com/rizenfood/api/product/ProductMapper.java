@@ -28,7 +28,7 @@ public class ProductMapper {
         return new ProductDtos.ListItem(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(), p.getWeightG(),
-                isSoldOut(p), p.isFeatured(),
+                computeSoldOut(p), p.isFeatured(),
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
     }
 
@@ -37,7 +37,7 @@ public class ProductMapper {
                 p.getId(), p.getSlug(), p.getNameKo(),
                 p.getPrice(), p.getDiscountPrice(),
                 p.getStock() == null ? 0 : p.getStock(),
-                isSoldOut(p), p.isFeatured(), p.isVisible(), p.getSortOrder(),
+                computeSoldOut(p), p.isFeatured(), p.isVisible(), p.getSortOrder(),
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
     }
 
@@ -53,7 +53,7 @@ public class ProductMapper {
                 .toList();
         return new ProductDtos.HeroSlide(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getSubtitle(),
-                p.effectivePrice(), isSoldOut(p),
+                p.effectivePrice(), computeSoldOut(p),
                 p.getHeroColor(),
                 variantUrl(heroKey, ImageVariant.MEDIUM),
                 variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
@@ -75,7 +75,8 @@ public class ProductMapper {
                 p.getHeroBackdropKey(),
                 variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
-                p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
+                p.getWeightG(), p.getServings(), p.getStock(), computeSoldOut(p),
+                p.isSoldOut(),
                 p.isFeatured(), p.isVisible(),
                 map(p.getImages(), this::toImageItem),
                 map(p.getOptions().stream().filter(ProductOption::isVisible).toList(),
@@ -88,10 +89,16 @@ public class ProductMapper {
     }
 
     /**
-     * 옵션이 있으면 옵션 재고를, 없으면 상품 재고를 본다.
-     * 옵션이 전부 품절이면 상품도 품절이다.
+     * 실제 품절 여부.
+     * 1) 관리자가 수동 품절(sold_out)을 켰으면 무조건 품절,
+     * 2) 아니면 재고로 판정 — 옵션이 있으면 옵션 재고를, 없으면 상품 재고를 본다.
      */
-    private boolean isSoldOut(Product p) {
+    private boolean computeSoldOut(Product p) {
+        if (p.isSoldOut()) return true;
+        return isStockSoldOut(p);
+    }
+
+    private boolean isStockSoldOut(Product p) {
         List<ProductOption> visible = p.getOptions().stream().filter(ProductOption::isVisible).toList();
         if (!visible.isEmpty()) {
             return visible.stream().allMatch(o -> o.getStock() <= 0);

@@ -123,6 +123,8 @@ public final class ProductDtos {
             Integer servings,
             int stock,
             boolean soldOut,
+            /** 관리자 수동 품절 플래그(재고와 무관). 폼 토글용. */
+            boolean soldOutManual,
             boolean featured,
             boolean visible,
             List<ImageItem> images,
@@ -221,6 +223,8 @@ public final class ProductDtos {
             String heroAccent2Key,
             String heroBackdropKey,
 
+            /** 관리자 수동 품절. 재고와 무관하게 강제 품절 처리한다. */
+            boolean soldOut,
             boolean featured,
             boolean visible,
 
