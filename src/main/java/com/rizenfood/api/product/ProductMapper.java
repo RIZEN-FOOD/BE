@@ -41,11 +41,26 @@ public class ProductMapper {
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
     }
 
+    /** 메인 히어로 캐러셀용. 누끼 이미지가 없으면 대표 이미지로 폴백한다. */
+    public ProductDtos.HeroSlide toHeroSlide(Product p) {
+        String heroKey = (p.getHeroImageKey() != null && !p.getHeroImageKey().isBlank())
+                ? p.getHeroImageKey()
+                : p.getThumbnailKey();
+        return new ProductDtos.HeroSlide(
+                p.getId(), p.getSlug(), p.getNameKo(), p.getSubtitle(),
+                p.effectivePrice(), isSoldOut(p),
+                p.getHeroColor(),
+                variantUrl(heroKey, ImageVariant.MEDIUM));
+    }
+
     public ProductDtos.Detail toDetail(Product p) {
         return new ProductDtos.Detail(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getDescriptionHtml(),
                 p.getThumbnailKey(),
+                p.getHeroColor(),
+                p.getHeroImageKey(),
+                variantUrl(p.getHeroImageKey(), ImageVariant.MEDIUM),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
                 p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
                 p.isFeatured(), p.isVisible(),

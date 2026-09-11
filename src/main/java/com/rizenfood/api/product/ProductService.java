@@ -43,6 +43,13 @@ public class ProductService {
                 .stream().map(mapper::toListItem).toList();
     }
 
+    /** 메인 히어로 캐러셀 슬라이드 (노출·메인노출 상품). */
+    @Transactional(readOnly = true)
+    public List<ProductDtos.HeroSlide> listHeroSlides() {
+        return repository.findByVisibleTrueAndFeaturedTrueOrderBySortOrderAscIdAsc()
+                .stream().map(mapper::toHeroSlide).toList();
+    }
+
     @Transactional(readOnly = true)
     public ProductDtos.Detail getPublic(String slug) {
         // 숨긴 상품도 404 다. 403 을 주면 "그 주소에 뭔가 있다"는 걸 알려주는 셈이다.
@@ -146,6 +153,8 @@ public class ProductService {
         p.setServings(r.servings());
         p.setStock(r.stock() == null ? 0 : r.stock());
         p.setThumbnailKey(r.thumbnailKey());
+        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroImageKey(r.heroImageKey() == null || r.heroImageKey().isBlank() ? null : r.heroImageKey());
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
         p.touch();

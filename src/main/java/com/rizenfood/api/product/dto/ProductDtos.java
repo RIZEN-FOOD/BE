@@ -40,6 +40,18 @@ public final class ProductDtos {
             String thumbnailUrl) {
     }
 
+    /** 메인 히어로 캐러셀 한 장. 제품별 배경색 + 누끼 이미지. */
+    public record HeroSlide(
+            Long id,
+            String slug,
+            String nameKo,
+            String subtitle,
+            int effectivePrice,
+            boolean soldOut,
+            String heroColor,
+            String heroImageUrl) {
+    }
+
     /**
      * 관리자 목록 한 줄.
      * 공개 목록과 달리 재고·노출 여부를 담는다.
@@ -93,6 +105,9 @@ public final class ProductDtos {
             String subtitle,
             String descriptionHtml,
             String thumbnailKey,
+            String heroColor,
+            String heroImageKey,
+            String heroImageUrl,
             int price,
             Integer discountPrice,
             int effectivePrice,
@@ -189,6 +204,12 @@ public final class ProductDtos {
             @Min(value = 0, message = "재고는 0 이상이어야 합니다.") Integer stock,
 
             String thumbnailKey,
+
+            @Pattern(regexp = "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                    message = "배경색은 #RRGGBB 형식이어야 합니다.")
+            String heroColor,
+            String heroImageKey,
+
             boolean featured,
             boolean visible,
 

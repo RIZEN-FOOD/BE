@@ -55,6 +55,12 @@ public class ProductController {
         return service.listFeatured();
     }
 
+    /** 메인 히어로 캐러셀. 노출·메인노출 상품을 배경색·누끼 이미지와 함께 준다. */
+    @GetMapping("/hero")
+    public List<ProductDtos.HeroSlide> hero() {
+        return service.listHeroSlides();
+    }
+
     @GetMapping("/{slug}")
     public ProductDtos.Detail detail(@PathVariable String slug) {
         return service.getPublic(slug);

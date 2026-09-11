@@ -69,6 +69,14 @@ public class Product {
     @Column(name = "thumbnail_key", length = 500)
     private String thumbnailKey;
 
+    /** 히어로 슬라이드 배경색 (#RRGGBB). 비우면 프론트 기본색. */
+    @Column(name = "hero_color", length = 9)
+    private String heroColor;
+
+    /** 히어로에 띄울 누끼(투명배경) 이미지 키. 비우면 대표 이미지로 폴백. */
+    @Column(name = "hero_image_key", length = 500)
+    private String heroImageKey;
+
     /** 메인 페이지 노출 */
     @Column(name = "is_featured", nullable = false)
     private boolean featured = false;
@@ -179,6 +187,8 @@ public class Product {
     public Integer getServings() { return servings; }
     public Integer getStock() { return stock; }
     public String getThumbnailKey() { return thumbnailKey; }
+    public String getHeroColor() { return heroColor; }
+    public String getHeroImageKey() { return heroImageKey; }
     public boolean isFeatured() { return featured; }
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
@@ -201,6 +211,8 @@ public class Product {
     public void setServings(Integer servings) { this.servings = servings; }
     public void setStock(Integer stock) { this.stock = stock; }
     public void setThumbnailKey(String thumbnailKey) { this.thumbnailKey = thumbnailKey; }
+    public void setHeroColor(String heroColor) { this.heroColor = heroColor; }
+    public void setHeroImageKey(String heroImageKey) { this.heroImageKey = heroImageKey; }
     public void setFeatured(boolean featured) { this.featured = featured; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }
