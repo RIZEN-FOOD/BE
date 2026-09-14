@@ -171,7 +171,8 @@ public class ProductMapper {
                 l.getFoodType(), l.getShelfLife(), l.getStorageMethod(),
                 l.getManufacturer(), l.getManufacturerAddr(),
                 l.getSeller(), l.getSellerAddr(),
-                l.getCustomerService(), l.getPackageMaterial(), l.getExtraNotice());
+                l.getCustomerService(), l.getPackageMaterial(), l.getExtraNotice(),
+                l.getBrand(), l.getOrigin(), l.getGrainType(), l.getCalorieInfo());
     }
 
     private ProductDtos.PurchaseLinkItem toPurchaseLinkItem(PurchaseLink l) {

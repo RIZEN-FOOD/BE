@@ -145,7 +145,9 @@ public final class ProductDtos {
             String foodType, String shelfLife, String storageMethod,
             String manufacturer, String manufacturerAddr,
             String seller, String sellerAddr,
-            String customerService, String packageMaterial, String extraNotice) {
+            String customerService, String packageMaterial, String extraNotice,
+            // 상품정보 고시 (V21)
+            String brand, String origin, String grainType, String calorieInfo) {
     }
 
     public record PurchaseLinkItem(String channel, String url, String label) {
@@ -230,7 +232,12 @@ public final class ProductDtos {
             @Size(max = 300) String sellerAddr,
             @Size(max = 120) String customerService,
             @Size(max = 200) String packageMaterial,
-            String extraNotice) {
+            String extraNotice,
+            // 상품정보 고시 (V21)
+            @Size(max = 120) String brand,
+            @Size(max = 120) String origin,
+            @Size(max = 120) String grainType,
+            @Size(max = 120) String calorieInfo) {
     }
 
     public record PurchaseLinkRequest(

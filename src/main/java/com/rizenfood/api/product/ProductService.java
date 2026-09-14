@@ -245,6 +245,10 @@ public class ProductService {
             label.setCustomerService(l.customerService());
             label.setPackageMaterial(l.packageMaterial());
             label.setExtraNotice(sanitizer.clean(l.extraNotice()));
+            label.setBrand(blankToNull(l.brand()));
+            label.setOrigin(blankToNull(l.origin()));
+            label.setGrainType(blankToNull(l.grainType()));
+            label.setCalorieInfo(blankToNull(l.calorieInfo()));
             p.setLabel(label);
         }
     }
