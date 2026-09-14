@@ -65,13 +65,45 @@ public class OrderController {
         return orderService.get(orderNo, me != null ? me.id() : null);
     }
 
+    /**
+     * 결제 확정. 브라우저가 PG 결제창을 마친 뒤 호출한다.
+     * 서버가 PG 에 직접 조회해 상태·금액을 검증한 뒤에만 확정하고, 그때 장바구니를 비운다.
+     */
     @PostMapping("/{orderNo}/pay")
     public OrderDtos.OrderView pay(
             @PathVariable String orderNo,
             @RequestBody(required = false) OrderDtos.PayRequest req,
-            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me) {
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me,
+            HttpServletRequest request) {
         return orderService.pay(orderNo, me != null ? me.id() : null,
-                req != null ? req : new OrderDtos.PayRequest(null));
+                req != null ? req : new OrderDtos.PayRequest(null),
+                currentCartId(me, request));
+    }
+
+    /**
+     * 결제창을 닫았거나 결제가 실패했을 때 호출한다.
+     * 미결제 주문을 정리하고 잡아둔 재고를 되돌린다. 실제로는 결제가 끝난 상태라면
+     * 서버가 PG 에서 확인해 확정한다(확정 요청 누락 대비).
+     */
+    @PostMapping("/{orderNo}/cancel-pending")
+    public OrderDtos.OrderView cancelPending(
+            @PathVariable String orderNo,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me,
+            HttpServletRequest request) {
+        return orderService.cancelPending(orderNo, me != null ? me.id() : null,
+                currentCartId(me, request));
+    }
+
+    /** 결제 확정 뒤 비울 장바구니. 게스트 장바구니가 없으면 null(비울 것 없음). */
+    private Long currentCartId(JwtTokenProvider.AuthenticatedMember me, HttpServletRequest request) {
+        if (me != null) {
+            return cartService.resolveMemberCart(me.id()).getId();
+        }
+        String token = cookies.readCartGuest(request);
+        if (token == null || token.isBlank()) {
+            return null;
+        }
+        return cartService.findGuestCart(token).map(Cart::getId).orElse(null);
     }
 
     // ── 취소·반품·교환 ────────────────────────────────────────

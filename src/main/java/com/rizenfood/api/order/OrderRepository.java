@@ -25,4 +25,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Page<Order> findAllByOrderByOrderedAtDesc(Pageable pageable);
 
     Page<Order> findByStatusOrderByOrderedAtDesc(String status, Pageable pageable);
+
+    // ── 결제 ──
+    /** 방치된 미결제 주문 정리용 (결제창 이탈 등). */
+    @EntityGraph(attributePaths = "items")
+    java.util.List<Order> findByStatusAndOrderedAtBefore(String status, java.time.Instant before);
 }

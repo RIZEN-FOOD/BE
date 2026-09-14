@@ -178,8 +178,8 @@ public class OrderService {
         // 결제 레코드(READY) 생성. 실제 승인은 pay() 에서.
         paymentRepository.save(new Payment(saved.getId(), paymentGateway.provider(), total));
 
-        // 주문에 담긴 장바구니 항목 비우기
-        cartItemRepository.deleteAllById(lines.stream().map(l -> l.cartItemId).toList());
+        // 장바구니는 여기서 비우지 않는다. 결제가 확정될 때(pay) 비운다 —
+        // 결제창을 닫거나 결제가 실패해도 고객이 장바구니를 잃지 않게.
 
         return toView(saved);
     }
@@ -202,7 +202,7 @@ public class OrderService {
     // ── 결제(모의) ────────────────────────────────────────────
 
     @Transactional
-    public OrderDtos.OrderView pay(String orderNo, Long memberId, OrderDtos.PayRequest req) {
+    public OrderDtos.OrderView pay(String orderNo, Long memberId, OrderDtos.PayRequest req, Long cartId) {
         Order order = loadOwned(orderNo, memberId);
         if (!order.isPending()) {
             throw new IllegalArgumentException("이미 결제되었거나 처리된 주문입니다.");
@@ -210,25 +210,149 @@ public class OrderService {
         Payment payment = paymentRepository.findByOrderId(order.getId())
                 .orElseThrow(() -> new NotFoundException("결제 정보를 찾을 수 없습니다."));
 
-        // PG 에 승인 요청. 서버가 계산한 주문 금액으로만 요청한다.
+        // PG 에 결제 결과를 직접 확인한다. 브라우저가 "결제됐다"고 해도 믿지 않는다.
         PaymentGateway.Approval approval;
         try {
             approval = paymentGateway.approve(orderNo, order.getTotalAmount());
         } catch (PaymentGateway.PaymentException e) {
-            payment.markFailed(e.getMessage());
             throw new IllegalArgumentException("결제에 실패했습니다. " + e.getMessage());
         }
 
         // ★ PG 승인 금액과 서버 계산 금액을 대조한다. 어긋나면 확정하지 않는다.
+        //   (주문은 결제 대기로 남고, cancel-pending·만료 정리에서 PG 환불 후 정리된다)
         if (approval.approvedAmount() != order.getTotalAmount()) {
-            payment.markFailed("승인 금액 불일치: 승인 " + approval.approvedAmount()
-                    + " / 주문 " + order.getTotalAmount());
+            log.warn("결제 금액 불일치: order={} 승인={} 주문={}",
+                    orderNo, approval.approvedAmount(), order.getTotalAmount());
             throw new IllegalStateException("결제 금액이 주문 금액과 일치하지 않습니다.");
         }
 
         payment.markPaid(approval.tid(), approval.method(), approval.receiptUrl());
         order.markPaid();
+        // 결제가 확정된 뒤에야 장바구니를 비운다(결제창 이탈·실패 시 장바구니를 잃지 않게).
+        clearOrderedFromCart(cartId, order);
         return toView(order);
+    }
+
+    /**
+     * 결제창을 닫았거나 결제가 실패했을 때 — 미결제 주문을 정리하고 잡아둔 재고를 되돌린다.
+     * 단, PG 에서는 결제가 끝났는데 확정 요청만 빠진 경우가 있으므로 먼저 PG 를 확인해
+     * 결제됐으면 확정한다. 결제 대기 상태가 아닌 주문은 건드리지 않는다.
+     */
+    @Transactional
+    public OrderDtos.OrderView cancelPending(String orderNo, Long memberId, Long cartId) {
+        Order order = loadOwned(orderNo, memberId);
+        if (order.isPending()) {
+            Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+            if (settleFromPg(order, payment)) {
+                clearOrderedFromCart(cartId, order);
+            } else {
+                releasePending(order, payment, "결제 미완료(결제창 닫힘·실패)");
+            }
+        }
+        return toView(order);
+    }
+
+    /**
+     * 방치된 미결제 주문 정리. 5분마다 돈다.
+     * 결제창만 열고 떠난 주문이 재고를 계속 붙잡지 않게 한다.
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT1M")
+    @Transactional
+    public void expireStalePending() {
+        java.time.Instant cutoff = java.time.Instant.now()
+                .minus(java.time.Duration.ofMinutes(pendingExpireMinutes));
+        for (Order order : orderRepository.findByStatusAndOrderedAtBefore("PENDING", cutoff)) {
+            Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+            if (!settleFromPg(order, payment)) {
+                releasePending(order, payment, "결제 시간 초과로 자동 취소");
+            }
+        }
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${app.payment.pending-expire-minutes:30}")
+    private long pendingExpireMinutes = 30;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderService.class);
+
+    /**
+     * PG 에 결제 여부를 확인해, 결제됐고 금액이 맞으면 확정한다.
+     * 결제됐는데 금액이 다르면(위변조 의심) 확정하지 않고 PG 에서 환불한다.
+     *
+     * @return 확정했으면 true
+     */
+    private boolean settleFromPg(Order order, Payment payment) {
+        // 모의 결제는 확인할 PG 가 없다.
+        if (payment == null || "MOCK".equals(payment.getPgProvider())) {
+            return false;
+        }
+        PaymentGateway.Approval approval;
+        try {
+            approval = paymentGateway.approve(order.getOrderNo(), order.getTotalAmount());
+        } catch (PaymentGateway.PaymentException e) {
+            return false; // 미결제
+        }
+        if (approval.approvedAmount() != order.getTotalAmount()) {
+            log.warn("결제 금액 불일치로 자동 환불: order={} 승인={} 주문={}",
+                    order.getOrderNo(), approval.approvedAmount(), order.getTotalAmount());
+            try {
+                paymentGateway.cancel(order.getOrderNo(), null, "결제 금액 불일치 자동 환불");
+            } catch (PaymentGateway.PaymentException e) {
+                log.error("자동 환불 실패 — 관리자 수동 확인 필요: order={}", order.getOrderNo());
+            }
+            return false;
+        }
+        payment.markPaid(approval.tid(), approval.method(), approval.receiptUrl());
+        order.markPaid();
+        return true;
+    }
+
+    /** 미결제 주문 정리: 재고를 되돌리고 주문은 취소, 결제는 실패로 남긴다. */
+    private void releasePending(Order order, Payment payment, String reason) {
+        restock(order);
+        order.markCancelled();
+        if (payment != null) {
+            payment.markFailed(reason);
+        }
+    }
+
+    private void restock(Order order) {
+        for (OrderItem it : order.getItems()) {
+            if (it.getProductId() == null) {
+                continue; // 상품이 삭제된 경우 원복 대상 없음
+            }
+            int qty = it.getQuantity();
+            Integer balance;
+            if (it.getProductOptionId() != null) {
+                optionRepository.increaseStock(it.getProductOptionId(), qty);
+                balance = optionRepository.currentStock(it.getProductOptionId());
+            } else {
+                productRepository.increaseStock(it.getProductId(), qty);
+                balance = productRepository.currentStock(it.getProductId());
+            }
+            stockLedgerRepository.save(new StockLedger(
+                    it.getProductId(), it.getProductOptionId(),
+                    qty, balance != null ? balance : 0,
+                    StockLedger.Reason.CANCEL, order.getId()));
+        }
+    }
+
+    /** 결제된 주문에 담긴 상품(상품·옵션 조합)을 장바구니에서 뺀다. */
+    private void clearOrderedFromCart(Long cartId, Order order) {
+        if (cartId == null) {
+            return;
+        }
+        java.util.Set<String> ordered = new java.util.HashSet<>();
+        for (OrderItem it : order.getItems()) {
+            ordered.add(it.getProductId() + ":" + it.getProductOptionId());
+        }
+        List<Long> ids = cartItemRepository.findByCartIdOrderByAddedAtAsc(cartId).stream()
+                .filter(ci -> ordered.contains(ci.getProduct().getId() + ":"
+                        + (ci.getOption() != null ? ci.getOption().getId() : null)))
+                .map(CartItem::getId)
+                .toList();
+        if (!ids.isEmpty()) {
+            cartItemRepository.deleteAllById(ids);
+        }
     }
 
     // ── 조회 ──────────────────────────────────────────────────

@@ -72,6 +72,8 @@ public class SecurityConfig {
                         // 비회원 주문은 추측 불가능한 주문번호로만 접근한다.
                         // (회원 주문 목록 /api/member/orders 는 아래 인증 규칙에 걸린다)
                         .requestMatchers("/api/orders/**").permitAll()
+                        // 결제 설정(공개값: provider·storeId·channelKey). API 시크릿은 내보내지 않는다.
+                        .requestMatchers(HttpMethod.GET, "/api/payment/config").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.

@@ -29,19 +29,23 @@ public class ClaimService {
     private final ProductRepository productRepository;
     private final ProductOptionRepository optionRepository;
     private final StockLedgerRepository stockLedgerRepository;
+    /** 취소·반품 완료 시 PG 환불 요청용 (포트원 또는 모의). */
+    private final com.rizenfood.api.payment.PaymentGateway paymentGateway;
 
     public ClaimService(OrderRepository orderRepository,
                         OrderClaimRepository claimRepository,
                         PaymentRepository paymentRepository,
                         ProductRepository productRepository,
                         ProductOptionRepository optionRepository,
-                        StockLedgerRepository stockLedgerRepository) {
+                        StockLedgerRepository stockLedgerRepository,
+                        com.rizenfood.api.payment.PaymentGateway paymentGateway) {
         this.orderRepository = orderRepository;
         this.claimRepository = claimRepository;
         this.paymentRepository = paymentRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
         this.stockLedgerRepository = stockLedgerRepository;
+        this.paymentGateway = paymentGateway;
     }
 
     // ── 고객 ──────────────────────────────────────────────────
@@ -109,11 +113,15 @@ public class ClaimService {
             restock(order);
             String nextOrderStatus = claim.getType().equals("CANCEL") ? "CANCELLED" : "REFUNDED";
             order.applyStatus(nextOrderStatus);
-            paymentRepository.findByOrderId(order.getId())
-                    .ifPresent(p -> cancelPayment(p));
             if (refund == null) {
                 refund = order.getTotalAmount();
             }
+            // ★ 결제된 주문이면 PG 에 실제 환불을 요청한다. 실패하면 예외 → 트랜잭션 롤백으로
+            //   재고·주문 상태 변경까지 되돌려, "환불은 안 됐는데 취소됨" 상태를 만들지 않는다.
+            final int refundAmount = refund;
+            final String reason = claim.getType().equals("CANCEL") ? "고객 요청 주문 취소" : "반품 환불";
+            paymentRepository.findByOrderId(order.getId())
+                    .ifPresent(p -> cancelPayment(order, p, refundAmount, reason));
         }
 
         claim.process(target, blankToNull(req.adminMemo()), refund);
@@ -143,9 +151,22 @@ public class ClaimService {
         }
     }
 
-    private void cancelPayment(Payment p) {
-        // 실제 PG 라면 여기서 승인 취소 API 를 호출한다. 지금은 모의로 상태만 정리.
-        p.markFailed("취소·반품 처리에 따른 결제 취소");
+    /**
+     * 결제 취소(환불). 결제 완료된 건만 PG 에 환불을 요청한다.
+     * 결제 전 주문은 PG 에 되돌릴 돈이 없으므로 상태만 정리한다.
+     */
+    private void cancelPayment(Order order, Payment p, int refundAmount, String reason) {
+        if (!Payment.Status.PAID.name().equals(p.getStatus())) {
+            p.markFailed(reason);
+            return;
+        }
+        try {
+            paymentGateway.cancel(order.getOrderNo(), refundAmount, reason);
+        } catch (com.rizenfood.api.payment.PaymentGateway.PaymentException e) {
+            // 400 으로 관리자 화면에 사유를 보여주고, 트랜잭션은 롤백된다(재고·상태 변경 없음).
+            throw new IllegalArgumentException("PG 환불 요청이 실패해 처리하지 않았습니다. " + e.getMessage());
+        }
+        p.markCancelled(refundAmount < p.getAmount());
     }
 
     private Order loadOwned(String orderNo, Long memberId) {

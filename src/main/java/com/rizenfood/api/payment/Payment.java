@@ -85,6 +85,13 @@ public class Payment {
         this.updatedAt = Instant.now();
     }
 
+    /** PG 결제 취소(환불) 완료. 일부만 환불했으면 부분 취소로 둔다. */
+    public void markCancelled(boolean partial) {
+        this.status = (partial ? Status.PARTIAL_CANCELLED : Status.CANCELLED).name();
+        this.cancelledAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
     public Long getId() { return id; }
     public Long getOrderId() { return orderId; }
     public String getPgProvider() { return pgProvider; }

@@ -66,6 +66,19 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3200}
 
+  payment:
+    # mock | portone. 포트원 계약·키가 준비되면 PAYMENT_PROVIDER=portone 으로 바꾼다.
+    provider: ${PAYMENT_PROVIDER:mock}
+    # 결제창 이탈 등으로 결제되지 않은 주문을 이 시간이 지나면 정리하고 재고를 되돌린다.
+    pending-expire-minutes: 30
+    portone:
+      # ★ 서버 전용 비밀값(결제 검증·취소). .env 로만 넣는다. 프론트·저장소 노출 금지.
+      api-secret: ${PORTONE_API_SECRET:}
+      api-base: https://api.portone.io
+      # 아래 둘은 브라우저가 결제창을 여는 데 쓰는 공개값이다.
+      store-id: ${PORTONE_STORE_ID:}
+      channel-key: ${PORTONE_CHANNEL_KEY:}
+
   image:
     max-file-size-bytes: 10485760   # 10MB
     # 압축 폭탄 방지. 파일은 작아도 풀면 수억 픽셀이 되는 파일을 막는다.

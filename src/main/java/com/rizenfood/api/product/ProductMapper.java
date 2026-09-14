@@ -60,7 +60,8 @@ public class ProductMapper {
                 p.getHeroColor(),
                 variantUrl(heroKey, ImageVariant.MEDIUM),
                 variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
-                accents);
+                accents,
+                p.isVisible());
     }
 
     private static boolean notBlank(String s) {

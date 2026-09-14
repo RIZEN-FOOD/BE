@@ -52,7 +52,9 @@ public final class ProductDtos {
             String heroImageUrl,     // 메인 이미지(제품 봉투)
             String heroBackdropUrl,  // 구성1 — 기둥
             /** 구성 장식 3종. 고정 순서 [우상단, 우하단, 좌하단]. 없는 자리는 null. */
-            List<String> accentImageUrls) {
+            List<String> accentImageUrls,
+            /** 상세 페이지로 보낼 수 있는지(상품 공개 여부). 출시 예정처럼 비공개면 false. */
+            boolean linkable) {
     }
 
     // ── 관리자: 메인 히어로 배너 관리 ─────────────────────
