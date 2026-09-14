@@ -221,12 +221,20 @@ public class ProductService {
         }
         if (r.nutrition() != null) {
             var n = r.nutrition();
-            p.setNutrition(new Nutrition(n.servingSizeG(), n.kcal(), n.carbG(),
-                    n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg()));
+            // 이미 있으면 같은 행을 갱신한다. 새 인스턴스로 갈아끼우면 Hibernate 가
+            // 기존 행 DELETE 보다 새 행 INSERT 를 먼저 실행해 product_id 유니크 제약을 위반한다.
+            if (p.getNutrition() != null) {
+                p.getNutrition().update(n.servingSizeG(), n.kcal(), n.carbG(),
+                        n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg());
+            } else {
+                p.setNutrition(new Nutrition(n.servingSizeG(), n.kcal(), n.carbG(),
+                        n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg()));
+            }
         }
         if (r.label() != null) {
             var l = r.label();
-            ProductLabel label = new ProductLabel();
+            // 라벨도 마찬가지 — 있으면 재사용해 필드만 갱신(유니크 제약 충돌 방지).
+            ProductLabel label = p.getLabel() != null ? p.getLabel() : new ProductLabel();
             label.setFoodType(l.foodType());
             label.setShelfLife(l.shelfLife());
             label.setStorageMethod(l.storageMethod());

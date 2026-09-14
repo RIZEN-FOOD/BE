@@ -64,6 +64,19 @@ public class Nutrition {
         this.product = product;
     }
 
+    /** 기존 행을 지우고 새로 넣지 않고, 같은 행의 값만 갱신한다(유니크 제약 충돌 방지). */
+    public void update(BigDecimal servingSizeG, BigDecimal kcal, BigDecimal carbG,
+                       BigDecimal proteinG, BigDecimal fatG, BigDecimal sugarG, BigDecimal sodiumMg) {
+        this.servingSizeG = servingSizeG;
+        this.kcal = kcal;
+        this.carbG = carbG;
+        this.proteinG = proteinG;
+        this.fatG = fatG;
+        this.sugarG = sugarG;
+        this.sodiumMg = sodiumMg;
+        this.updatedAt = Instant.now();
+    }
+
     public Long getId() { return id; }
     public BigDecimal getServingSizeG() { return servingSizeG; }
     public BigDecimal getKcal() { return kcal; }
