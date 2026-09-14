@@ -37,6 +37,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     /** 메인에 노출할 상품 */
     List<Product> findByVisibleTrueAndFeaturedTrueOrderBySortOrderAscIdAsc();
 
+    /** 메인 히어로 배너 — 노출(hero_enabled) 슬라이드를 표시 순서대로 */
+    List<Product> findByHeroEnabledTrueOrderByHeroSortAscIdAsc();
+
+    /** 관리자 배너 목록 — 전체 상품을 히어로 순서대로 (노출 여부 무관) */
+    List<Product> findAllByOrderByHeroSortAscIdAsc();
+
     /**
      * 공개 상세. 숨긴 상품은 없는 것처럼 다룬다.
      *

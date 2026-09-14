@@ -46,18 +46,48 @@ public class ProductMapper {
         String heroKey = (p.getHeroImageKey() != null && !p.getHeroImageKey().isBlank())
                 ? p.getHeroImageKey()
                 : p.getThumbnailKey();
-        List<String> accents = java.util.stream.Stream.of(
-                        variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
-                        variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM))
-                .filter(java.util.Objects::nonNull)
-                .toList();
+        // 고정 순서 [우상단(accent1), 우하단(accent3), 좌하단(accent2)] — 없는 자리는 null 유지
+        List<String> accents = java.util.Arrays.asList(
+                variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                variantUrl(p.getHeroAccent3Key(), ImageVariant.MEDIUM),
+                variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM));
+        // 배너 전용 문구 우선, 비어 있으면 상품명·부제로 폴백
+        String headline = notBlank(p.getHeroHeadline()) ? p.getHeroHeadline() : p.getNameKo();
+        String subcopy = notBlank(p.getHeroSubcopy()) ? p.getHeroSubcopy() : p.getSubtitle();
         return new ProductDtos.HeroSlide(
-                p.getId(), p.getSlug(), p.getNameKo(), p.getSubtitle(),
+                p.getId(), p.getSlug(), headline, subcopy,
                 p.effectivePrice(), computeSoldOut(p),
                 p.getHeroColor(),
                 variantUrl(heroKey, ImageVariant.MEDIUM),
                 variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 accents);
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    // ── 관리자: 메인 히어로 배너 ──────────────────────────
+    public ProductDtos.HeroBannerRow toHeroBannerRow(Product p) {
+        String headline = notBlank(p.getHeroHeadline()) ? p.getHeroHeadline() : p.getNameKo();
+        return new ProductDtos.HeroBannerRow(
+                p.getId(), p.getSlug(), p.getNameKo(), headline,
+                variantUrl(p.getHeroImageKey(), ImageVariant.THUMBNAIL),
+                p.getHeroColor(), p.getHeroSort(), p.isHeroEnabled(), computeSoldOut(p));
+    }
+
+    public ProductDtos.HeroBannerDetail toHeroBannerDetail(Product p) {
+        return new ProductDtos.HeroBannerDetail(
+                p.getId(), p.getSlug(), p.getNameKo(),
+                p.getHeroHeadline(), p.getHeroSubcopy(),
+                p.getNameKo(), p.getSubtitle(),
+                p.getHeroColor(),
+                p.getHeroImageKey(),    variantUrl(p.getHeroImageKey(), ImageVariant.MEDIUM),
+                p.getHeroBackdropKey(), variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
+                p.getHeroAccent1Key(),  variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent3Key(),  variantUrl(p.getHeroAccent3Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent2Key(),  variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM),
+                p.getHeroSort(), p.isHeroEnabled());
     }
 
     public ProductDtos.Detail toDetail(Product p) {

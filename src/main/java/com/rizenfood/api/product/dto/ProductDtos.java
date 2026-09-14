@@ -44,14 +44,65 @@ public final class ProductDtos {
     public record HeroSlide(
             Long id,
             String slug,
-            String nameKo,
-            String subtitle,
+            String nameKo,       // 배너 메인 문구(hero_headline) 우선, 없으면 상품명
+            String subtitle,     // 배너 서브 문구(hero_subcopy) 우선, 없으면 부제
             int effectivePrice,
             boolean soldOut,
             String heroColor,
-            String heroImageUrl,
-            String heroBackdropUrl,
+            String heroImageUrl,     // 메인 이미지(제품 봉투)
+            String heroBackdropUrl,  // 구성1 — 기둥
+            /** 구성 장식 3종. 고정 순서 [우상단, 우하단, 좌하단]. 없는 자리는 null. */
             List<String> accentImageUrls) {
+    }
+
+    // ── 관리자: 메인 히어로 배너 관리 ─────────────────────
+    /** 배너 목록 한 줄 */
+    public record HeroBannerRow(
+            Long id,
+            String slug,
+            String productName,   // 상품명(nameKo)
+            String headline,      // 표시될 메인 문구(오버라이드 or 상품명)
+            String heroImageUrl,  // 메인 이미지 썸네일
+            String heroColor,
+            int heroSort,
+            boolean heroEnabled,
+            boolean soldOut) {
+    }
+
+    /** 배너 편집 상세 — 키와 미리보기 URL 을 함께 준다 */
+    public record HeroBannerDetail(
+            Long id,
+            String slug,
+            String productName,
+            String heroHeadline,   // 오버라이드 값(비어있을 수 있음)
+            String heroSubcopy,
+            String defaultHeadline, // 비웠을 때 쓰일 상품명
+            String defaultSubcopy,  // 비웠을 때 쓰일 부제
+            String heroColor,
+            String heroImageKey,    String heroImageUrl,       // 메인 이미지
+            String heroBackdropKey, String heroBackdropUrl,    // 구성1 — 기둥
+            String heroAccent1Key,  String heroAccent1Url,     // 구성2 — 우상단
+            String heroAccent3Key,  String heroAccent3Url,     // 구성3 — 우하단
+            String heroAccent2Key,  String heroAccent2Url,     // 구성4 — 좌하단
+            int heroSort,
+            boolean heroEnabled) {
+    }
+
+    /** 배너 저장 요청 (이미지·색·문구·순서·노출) */
+    public record HeroBannerSaveRequest(
+            @jakarta.validation.constraints.Size(max = 200) String heroHeadline,
+            @jakarta.validation.constraints.Size(max = 300) String heroSubcopy,
+            @jakarta.validation.constraints.Pattern(
+                    regexp = "^$|^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                    message = "배경색은 #RRGGBB 형식이어야 합니다.")
+            String heroColor,
+            String heroImageKey,
+            String heroBackdropKey,
+            String heroAccent1Key,
+            String heroAccent3Key,
+            String heroAccent2Key,
+            int heroSort,
+            boolean heroEnabled) {
     }
 
     /**

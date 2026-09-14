@@ -88,6 +88,26 @@ public class Product {
     @Column(name = "hero_backdrop_key", length = 500)
     private String heroBackdropKey;
 
+    /** 구성 이미지 3 — 오른쪽 하단 장식 (accent1=우상단, accent2=좌하단) */
+    @Column(name = "hero_accent3_key", length = 500)
+    private String heroAccent3Key;
+
+    /** 배너 전용 메인 문구. 비우면 상품명(nameKo)을 쓴다. */
+    @Column(name = "hero_headline", length = 200)
+    private String heroHeadline;
+
+    /** 배너 전용 서브 문구. 비우면 부제(subtitle)를 쓴다. */
+    @Column(name = "hero_subcopy", length = 300)
+    private String heroSubcopy;
+
+    /** 히어로 배너 표시 순서 (작을수록 먼저) */
+    @Column(name = "hero_sort", nullable = false)
+    private int heroSort = 0;
+
+    /** 히어로 배너 노출 여부(배너별 활성/비활성) */
+    @Column(name = "hero_enabled", nullable = false)
+    private boolean heroEnabled = false;
+
     /** 메인 페이지 노출 */
     @Column(name = "is_featured", nullable = false)
     private boolean featured = false;
@@ -207,6 +227,11 @@ public class Product {
     public String getHeroAccent1Key() { return heroAccent1Key; }
     public String getHeroAccent2Key() { return heroAccent2Key; }
     public String getHeroBackdropKey() { return heroBackdropKey; }
+    public String getHeroAccent3Key() { return heroAccent3Key; }
+    public String getHeroHeadline() { return heroHeadline; }
+    public String getHeroSubcopy() { return heroSubcopy; }
+    public int getHeroSort() { return heroSort; }
+    public boolean isHeroEnabled() { return heroEnabled; }
     public boolean isFeatured() { return featured; }
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
@@ -235,6 +260,11 @@ public class Product {
     public void setHeroAccent1Key(String heroAccent1Key) { this.heroAccent1Key = heroAccent1Key; }
     public void setHeroAccent2Key(String heroAccent2Key) { this.heroAccent2Key = heroAccent2Key; }
     public void setHeroBackdropKey(String heroBackdropKey) { this.heroBackdropKey = heroBackdropKey; }
+    public void setHeroAccent3Key(String heroAccent3Key) { this.heroAccent3Key = heroAccent3Key; }
+    public void setHeroHeadline(String heroHeadline) { this.heroHeadline = heroHeadline; }
+    public void setHeroSubcopy(String heroSubcopy) { this.heroSubcopy = heroSubcopy; }
+    public void setHeroSort(int heroSort) { this.heroSort = heroSort; }
+    public void setHeroEnabled(boolean heroEnabled) { this.heroEnabled = heroEnabled; }
     public void setFeatured(boolean featured) { this.featured = featured; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }

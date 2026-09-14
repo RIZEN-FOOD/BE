@@ -46,8 +46,39 @@ public class ProductService {
     /** 메인 히어로 캐러셀 슬라이드 (노출·메인노출 상품). */
     @Transactional(readOnly = true)
     public List<ProductDtos.HeroSlide> listHeroSlides() {
-        return repository.findByVisibleTrueAndFeaturedTrueOrderBySortOrderAscIdAsc()
+        return repository.findByHeroEnabledTrueOrderByHeroSortAscIdAsc()
                 .stream().map(mapper::toHeroSlide).toList();
+    }
+
+    // ── 관리자: 메인 히어로 배너 ──────────────────────────
+    @Transactional(readOnly = true)
+    public List<ProductDtos.HeroBannerRow> listHeroBanners() {
+        return repository.findAllByOrderByHeroSortAscIdAsc()
+                .stream().map(mapper::toHeroBannerRow).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductDtos.HeroBannerDetail getHeroBanner(Long id) {
+        Product p = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+        return mapper.toHeroBannerDetail(p);
+    }
+
+    @Transactional
+    public void saveHeroBanner(Long id, ProductDtos.HeroBannerSaveRequest r) {
+        Product p = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+        p.setHeroHeadline(blankToNull(r.heroHeadline()));
+        p.setHeroSubcopy(blankToNull(r.heroSubcopy()));
+        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroImageKey(blankToNull(r.heroImageKey()));
+        p.setHeroBackdropKey(blankToNull(r.heroBackdropKey()));
+        p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
+        p.setHeroAccent3Key(blankToNull(r.heroAccent3Key()));
+        p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));
+        p.setHeroSort(r.heroSort());
+        p.setHeroEnabled(r.heroEnabled());
+        p.touch();
     }
 
     @Transactional(readOnly = true)
