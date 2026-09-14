@@ -66,6 +66,16 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3200}
 
+  client-ip:
+    # 실제 접속자 IP 를 담은, 믿을 수 있는 헤더. 비우면 연결 주소를 쓴다(로컬).
+    # 운영은 CF-Connecting-IP (Cloudflare Tunnel 뒤라 Cloudflare 만 이 값을 채운다).
+    # ★ X-Forwarded-For 를 넣지 않는다 — 누구나 위조할 수 있다.
+    header: ${CLIENT_IP_HEADER:}
+
+  rate-limit:
+    # 로그인·가입·주문 등 민감한 요청의 IP 당 횟수 제한 (RateLimitFilter)
+    enabled: ${RATE_LIMIT_ENABLED:true}
+
   payment:
     # mock | portone. 포트원 계약·키가 준비되면 PAYMENT_PROVIDER=portone 으로 바꾼다.
     provider: ${PAYMENT_PROVIDER:mock}
@@ -93,5 +103,10 @@ app:
       public-base-url: ${STORAGE_LOCAL_URL:http://localhost:8080/uploads}
     s3:
       bucket: ${S3_BUCKET:}
-      # 버킷 주소가 아니라 CloudFront 도메인을 쓴다.
+      # 버킷 주소가 아니라 CDN 도메인을 쓴다 (R2 사용자 지정 도메인 또는 CloudFront).
       public-base-url: ${CDN_BASE_URL:}
+      # R2 면 https://<계정ID>.r2.cloudflarestorage.com, AWS S3 면 비운다.
+      endpoint: ${S3_ENDPOINT:}
+      # R2 는 auto
+      region: ${S3_REGION:ap-northeast-2}
+      # 접근 키는 표준 환경변수 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 로 넣는다.

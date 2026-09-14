@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.rizenfood.api.member.dto.MemberDtos;
 import com.rizenfood.api.security.AuthCookies;
+import com.rizenfood.api.security.ClientIpResolver;
 import com.rizenfood.api.security.JwtTokenProvider;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,11 +36,14 @@ public class MemberAuthController {
     private final MemberAuthService service;
     private final JwtTokenProvider tokenProvider;
     private final AuthCookies cookies;
+    private final ClientIpResolver ipResolver;
 
-    public MemberAuthController(MemberAuthService service, JwtTokenProvider tokenProvider, AuthCookies cookies) {
+    public MemberAuthController(MemberAuthService service, JwtTokenProvider tokenProvider,
+                                AuthCookies cookies, ClientIpResolver ipResolver) {
         this.service = service;
         this.tokenProvider = tokenProvider;
         this.cookies = cookies;
+        this.ipResolver = ipResolver;
     }
 
     /** 이메일 사용 가능 여부 (회원가입 중복확인) */
@@ -134,12 +138,8 @@ public class MemberAuthController {
                 .header(HttpHeaders.SET_COOKIE, cookies.expiredMemberRefresh().toString());
     }
 
+    /** 로그인 기기 기록용 접속자 IP. 위조 가능한 X-Forwarded-For 대신 ClientIpResolver 가 정한다. */
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            String first = forwarded.split(",")[0].trim();
-            return first.length() > 64 ? first.substring(0, 64) : first;
-        }
-        return request.getRemoteAddr();
+        return ipResolver.resolve(request);
     }
 }
