@@ -85,9 +85,16 @@ app:
       # ★ 서버 전용 비밀값(결제 검증·취소). .env 로만 넣는다. 프론트·저장소 노출 금지.
       api-secret: ${PORTONE_API_SECRET:}
       api-base: https://api.portone.io
-      # 아래 둘은 브라우저가 결제창을 여는 데 쓰는 공개값이다.
+      # 아래는 브라우저가 결제창을 여는 데 쓰는 공개값이다.
       store-id: ${PORTONE_STORE_ID:}
-      channel-key: ${PORTONE_CHANNEL_KEY:}
+      # 결제사(PG·간편결제)마다 채널이 따로다. 비워 둔 결제수단은 결제 화면에 나오지 않는다.
+      channel-key: ${PORTONE_CHANNEL_KEY:}                   # 신용·체크카드 (PG 채널)
+      channel-key-kakaopay: ${PORTONE_CHANNEL_KEY_KAKAOPAY:}
+      channel-key-naverpay: ${PORTONE_CHANNEL_KEY_NAVERPAY:}
+      channel-key-tosspay: ${PORTONE_CHANNEL_KEY_TOSSPAY:}
+      channel-key-transfer: ${PORTONE_CHANNEL_KEY_TRANSFER:} # 계좌이체 (보통 카드와 같은 PG 채널)
+      # ★ 서버 전용 비밀값. 웹훅 서명 검증(whsec_...). 포트원 콘솔 → 결제 연동 → 웹훅.
+      webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
 
   image:
     max-file-size-bytes: 10485760   # 10MB

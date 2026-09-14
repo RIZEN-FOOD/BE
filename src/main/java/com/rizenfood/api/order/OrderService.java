@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.rizenfood.api.cart.CartItem;
 import com.rizenfood.api.cart.CartItemRepository;
+import com.rizenfood.api.cart.CartRepository;
 import com.rizenfood.api.common.NotFoundException;
 import com.rizenfood.api.image.ImageService;
 import com.rizenfood.api.member.PhoneCipher;
@@ -53,6 +54,7 @@ public class OrderService {
     private final PhoneCipher phoneCipher;
     private final OrderNoGenerator orderNoGenerator;
     private final PaymentGateway paymentGateway;
+    private final CartRepository cartRepository;
 
     public OrderService(CartItemRepository cartItemRepository,
                         ProductRepository productRepository,
@@ -65,7 +67,8 @@ public class OrderService {
                         ImageService imageService,
                         PhoneCipher phoneCipher,
                         OrderNoGenerator orderNoGenerator,
-                        PaymentGateway paymentGateway) {
+                        PaymentGateway paymentGateway,
+                        CartRepository cartRepository) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -78,6 +81,7 @@ public class OrderService {
         this.phoneCipher = phoneCipher;
         this.orderNoGenerator = orderNoGenerator;
         this.paymentGateway = paymentGateway;
+        this.cartRepository = cartRepository;
     }
 
     /** 재고 부족으로 주문을 만들 수 없을 때. 409 로 매핑된다. */
@@ -248,6 +252,9 @@ public class OrderService {
             } else {
                 releasePending(order, payment, "결제 미완료(결제창 닫힘·실패)");
             }
+        } else if ("PAID".equals(order.getStatus())) {
+            // 웹훅이 먼저 확정한 경우. 웹훅은 비회원 장바구니를 알 수 없으니 여기서 비운다.
+            clearOrderedFromCart(cartId, order);
         }
         return toView(order);
     }
@@ -273,6 +280,52 @@ public class OrderService {
     private long pendingExpireMinutes = 30;
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OrderService.class);
+
+    /** 웹훅 결제완료 처리 결과 */
+    public enum WebhookSettle {
+        /** 이번에 확정했다 */
+        SETTLED,
+        /** 이미 확정·취소 등으로 처리된 주문 — 할 일 없음 */
+        ALREADY_DONE,
+        /** 포트원 조회상 아직 결제 완료가 아니다(또는 금액 불일치로 환불) — 재전송을 받아 다시 본다 */
+        NOT_PAID,
+        /** 우리 주문이 아니다(테스트 호출 등) */
+        NOT_FOUND
+    }
+
+    /**
+     * 포트원 웹훅(Transaction.Paid) 처리. 웹훅 내용은 믿지 않고 settleFromPg 로 포트원을 다시 조회한다.
+     * 결제 확정 요청(pay)과 웹훅이 동시에 와도 결과는 같다 — 먼저 확정한 쪽 이후엔 결제 대기가 아니다.
+     */
+    @Transactional
+    public WebhookSettle settleByWebhook(String orderNo) {
+        Order order = orderRepository.findByOrderNo(orderNo).orElse(null);
+        if (order == null) {
+            return WebhookSettle.NOT_FOUND;
+        }
+        if (!order.isPending()) {
+            return WebhookSettle.ALREADY_DONE;
+        }
+        Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+        if (!settleFromPg(order, payment)) {
+            return WebhookSettle.NOT_PAID;
+        }
+        // 회원 주문이면 회원 장바구니에서 주문한 상품을 뺀다. (비회원은 cancel-pending 이 비운다)
+        if (order.getMemberId() != null) {
+            cartRepository.findByMemberId(order.getMemberId())
+                    .ifPresent(cart -> clearOrderedFromCart(cart.getId(), order));
+        }
+        return WebhookSettle.SETTLED;
+    }
+
+    /** 이 결제가 우리 쪽에서도 취소(전액·부분)로 기록돼 있는지 — 포트원 취소 웹훅 대조용 */
+    @Transactional(readOnly = true)
+    public boolean isRecordedAsCancelled(String orderNo) {
+        return orderRepository.findByOrderNo(orderNo)
+                .flatMap(order -> paymentRepository.findByOrderId(order.getId()))
+                .map(p -> "CANCELLED".equals(p.getStatus()) || "PARTIAL_CANCELLED".equals(p.getStatus()))
+                .orElse(false);
+    }
 
     /**
      * PG 에 결제 여부를 확인해, 결제됐고 금액이 맞으면 확정한다.

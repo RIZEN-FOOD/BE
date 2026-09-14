@@ -74,6 +74,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/**").permitAll()
                         // 결제 설정(공개값: provider·storeId·channelKey). API 시크릿은 내보내지 않는다.
                         .requestMatchers(HttpMethod.GET, "/api/payment/config").permitAll()
+                        // 포트원 웹훅. 로그인 대신 서명(HMAC)으로 검증한다 (PortOneWebhookController).
+                        .requestMatchers(HttpMethod.POST, "/api/payment/webhook/portone").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.
