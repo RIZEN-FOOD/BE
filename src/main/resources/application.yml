@@ -45,6 +45,8 @@ app:
     #   32바이트 이상이어야 하고, 짧으면 서버가 아예 뜨지 않는다.
     secret: ${JWT_SECRET:}
     admin-expiry-minutes: 240
+    member-access-minutes: 30
+    member-refresh-days: 14
     # 운영은 반드시 true. HTTPS 로만 쿠키가 오간다.
     secure-cookie: ${JWT_SECURE_COOKIE:false}
     same-site: Lax
@@ -57,8 +59,42 @@ app:
       password: ${ADMIN_BOOTSTRAP_PASSWORD:}
       display-name: ${ADMIN_BOOTSTRAP_NAME:관리자}
 
+  crypto:
+    # 휴대폰 번호 암호화 키 (base64 32바이트). .env 로만 넣는다.
+    phone-key: ${PHONE_ENC_KEY:}
+
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3200}
+
+  client-ip:
+    # 실제 접속자 IP 를 담은, 믿을 수 있는 헤더. 비우면 연결 주소를 쓴다(로컬).
+    # 운영은 CF-Connecting-IP (Cloudflare Tunnel 뒤라 Cloudflare 만 이 값을 채운다).
+    # ★ X-Forwarded-For 를 넣지 않는다 — 누구나 위조할 수 있다.
+    header: ${CLIENT_IP_HEADER:}
+
+  rate-limit:
+    # 로그인·가입·주문 등 민감한 요청의 IP 당 횟수 제한 (RateLimitFilter)
+    enabled: ${RATE_LIMIT_ENABLED:true}
+
+  payment:
+    # mock | portone. 포트원 계약·키가 준비되면 PAYMENT_PROVIDER=portone 으로 바꾼다.
+    provider: ${PAYMENT_PROVIDER:mock}
+    # 결제창 이탈 등으로 결제되지 않은 주문을 이 시간이 지나면 정리하고 재고를 되돌린다.
+    pending-expire-minutes: 30
+    portone:
+      # ★ 서버 전용 비밀값(결제 검증·취소). .env 로만 넣는다. 프론트·저장소 노출 금지.
+      api-secret: ${PORTONE_API_SECRET:}
+      api-base: https://api.portone.io
+      # 아래는 브라우저가 결제창을 여는 데 쓰는 공개값이다.
+      store-id: ${PORTONE_STORE_ID:}
+      # 결제사(PG·간편결제)마다 채널이 따로다. 비워 둔 결제수단은 결제 화면에 나오지 않는다.
+      channel-key: ${PORTONE_CHANNEL_KEY:}                   # 신용·체크카드 (PG 채널)
+      channel-key-kakaopay: ${PORTONE_CHANNEL_KEY_KAKAOPAY:}
+      channel-key-naverpay: ${PORTONE_CHANNEL_KEY_NAVERPAY:}
+      channel-key-tosspay: ${PORTONE_CHANNEL_KEY_TOSSPAY:}
+      channel-key-transfer: ${PORTONE_CHANNEL_KEY_TRANSFER:} # 계좌이체 (보통 카드와 같은 PG 채널)
+      # ★ 서버 전용 비밀값. 웹훅 서명 검증(whsec_...). 포트원 콘솔 → 결제 연동 → 웹훅.
+      webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
 
   image:
     max-file-size-bytes: 10485760   # 10MB
@@ -74,5 +110,10 @@ app:
       public-base-url: ${STORAGE_LOCAL_URL:http://localhost:8080/uploads}
     s3:
       bucket: ${S3_BUCKET:}
-      # 버킷 주소가 아니라 CloudFront 도메인을 쓴다.
+      # 버킷 주소가 아니라 CDN 도메인을 쓴다 (R2 사용자 지정 도메인 또는 CloudFront).
       public-base-url: ${CDN_BASE_URL:}
+      # R2 면 https://<계정ID>.r2.cloudflarestorage.com, AWS S3 면 비운다.
+      endpoint: ${S3_ENDPOINT:}
+      # R2 는 auto
+      region: ${S3_REGION:ap-northeast-2}
+      # 접근 키는 표준 환경변수 AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY 로 넣는다.

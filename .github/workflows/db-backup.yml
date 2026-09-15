@@ -1,0 +1,59 @@
+# 매일 새벽 3시(KST) DB 전체를 백업해 Cloudflare R2 에 올린다.
+#
+# ★ 백업에는 주문자 이름·주소 등 개인정보가 들어 있다. 올리기 전에 암호화(gpg, AES256)한다.
+#   복구 때 같은 암호가 필요하다 — 암호를 잃어버리면 백업을 열 수 없다.
+#
+# 저장소 Settings → Secrets and variables → Actions
+#   secrets.BACKUP_DATABASE_URL   postgresql://postgres.<ref>:<비번>@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
+#   secrets.BACKUP_PASSPHRASE     백업 암호 (길고 무작위로, 별도 보관)
+#   secrets.R2_ACCESS_KEY_ID / secrets.R2_SECRET_ACCESS_KEY   백업 버킷 쓰기 전용 토큰
+#   vars.R2_ENDPOINT              https://<계정ID>.r2.cloudflarestorage.com
+#   vars.R2_BACKUP_BUCKET         예: rizenfood-db-backup (비공개 버킷, 수명 주기 30일 삭제 규칙)
+#
+# 복구 (deploy/README.md 의 "복구" 참고)
+#   gpg --decrypt backup.sql.gz.gpg | gunzip | psql "$DATABASE_URL"
+name: DB backup
+
+on:
+  schedule:
+    - cron: "0 18 * * *" # UTC 18:00 = KST 03:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Dump (pg_dump 17 — 서버 버전 이상이어야 한다)
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          docker run --rm -e DATABASE_URL postgres:17 \
+            pg_dump --no-owner --no-privileges "$DATABASE_URL" | gzip -9 > backup.sql.gz
+          test -s backup.sql.gz
+          ls -la backup.sql.gz
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          gpg --batch --yes --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" -o backup.sql.gz.gpg backup.sql.gz
+          rm backup.sql.gz
+
+      - name: Upload to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -euo pipefail
+          KEY="rizenfood/$(date -u +%Y/%m)/rizenfood-$(date -u +%Y%m%dT%H%M%SZ).sql.gz.gpg"
+          aws s3 cp backup.sql.gz.gpg "s3://${{ vars.R2_BACKUP_BUCKET }}/$KEY" \
+            --endpoint-url "${{ vars.R2_ENDPOINT }}"
+          echo "uploaded $KEY"

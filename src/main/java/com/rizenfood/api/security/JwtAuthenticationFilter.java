@@ -40,14 +40,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain chain) throws ServletException, IOException {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            tokenProvider.parseAdminToken(cookies.readAdminToken(request)).ifPresent(admin -> {
-                // ROLE_ 접두사는 hasRole('ADMIN') 이 찾는 형식이다.
-                var authority = new SimpleGrantedAuthority("ROLE_" + admin.role());
+            // 관리자 토큰을 먼저 본다. 있으면 관리자로 인증한다.
+            var admin = tokenProvider.parseAdminToken(cookies.readAdminToken(request));
+            if (admin.isPresent()) {
+                var authority = new SimpleGrantedAuthority("ROLE_" + admin.get().role());
                 var authentication = new UsernamePasswordAuthenticationToken(
-                        admin, null, List.of(authority));
+                        admin.get(), null, List.of(authority));
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-            });
+            } else {
+                // 관리자 토큰이 없으면 회원 토큰을 본다.
+                tokenProvider.parseMemberToken(cookies.readMemberAccess(request)).ifPresent(member -> {
+                    var authority = new SimpleGrantedAuthority("ROLE_MEMBER");
+                    var authentication = new UsernamePasswordAuthenticationToken(
+                            member, null, List.of(authority));
+                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                });
+            }
         }
 
         chain.doFilter(request, response);

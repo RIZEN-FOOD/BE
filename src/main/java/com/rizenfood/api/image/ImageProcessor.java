@@ -50,16 +50,31 @@ public class ImageProcessor {
     public Result process(byte[] originalBytes) {
         BufferedImage decoded = decode(originalBytes);
 
-        // 알파 채널을 없애고 흰 배경 위에 다시 그린다.
-        // 투명 PNG 를 그대로 WebP 로 옮기면 배경이 검게 나오는 경우가 있다.
-        BufferedImage flattened = flatten(decoded);
+        // 투명 배경(누끼) 이미지는 알파를 살려 WebP 로 낸다 — 히어로에서 배경 위에 떠야 한다.
+        // 알파가 없는 일반 사진은 흰 배경으로 평탄화한다(예전 검은 배경 이슈 회피).
+        BufferedImage base = decoded.getColorModel().hasAlpha()
+                ? toArgb(decoded)
+                : flatten(decoded);
 
         Map<ImageVariant, byte[]> variants = new EnumMap<>(ImageVariant.class);
         for (ImageVariant variant : ImageVariant.values()) {
-            variants.put(variant, encodeWebp(resize(flattened, variant.maxEdge())));
+            variants.put(variant, encodeWebp(resize(base, variant.maxEdge())));
         }
 
-        return new Result(variants, flattened.getWidth(), flattened.getHeight());
+        return new Result(variants, base.getWidth(), base.getHeight());
+    }
+
+    /** 알파를 유지한 채 표준 ARGB 로 정규화한다(색 모델·프로파일 제거는 유지). */
+    private BufferedImage toArgb(BufferedImage source) {
+        BufferedImage target =
+                new BufferedImage(source.getWidth(), source.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = target.createGraphics();
+        try {
+            g.drawImage(source, 0, 0, null);
+        } finally {
+            g.dispose();
+        }
+        return target;
     }
 
     private BufferedImage decode(byte[] bytes) {

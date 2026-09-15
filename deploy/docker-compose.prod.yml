@@ -1,0 +1,41 @@
+# 운영 서버(2GB 리눅스)에서 띄우는 구성.
+#
+#   cd /opt/rizen && docker compose -f docker-compose.prod.yml up -d
+#
+# ★ API 포트를 서버 밖으로 열지 않는다(ports 없음, expose 만).
+#   인터넷에서 들어오는 요청은 cloudflared(Cloudflare Tunnel)가 안쪽에서 바깥으로 연결해 받아 준다.
+#   그래서 서버 방화벽은 들어오는 연결을 전부 막아 둔다(SSH 제외).
+#
+# Cloudflare 대시보드 → Zero Trust → Tunnels → Public hostname
+#   api.도메인  →  http://api:8080
+
+services:
+  api:
+    image: ghcr.io/rizen-food/be:${API_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    # 2GB 서버: 운영체제·Docker·cloudflared 몫을 남기고 API 에 1.2GB. 힙은 이 중 70%.
+    mem_limit: 1200m
+    expose:
+      - "8080"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      - api
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

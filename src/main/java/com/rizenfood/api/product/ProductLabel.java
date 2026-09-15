@@ -13,7 +13,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 /**
- * 그 밖의 법정 표시사항.
+ * 그 밖의 법정 표시사항 + 상품정보 고시.
  *
  * 식품을 온라인에서 팔 때는 소비자가 구매 전에 이 정보를 볼 수 있어야 한다.
  * 전부 텍스트로 렌더한다. 이미지 안의 글자는 검색에도 안 잡히고 접근성에도 불리하다.
@@ -41,6 +41,12 @@ public class ProductLabel {
     @Column(name = "package_material", length = 200) private String packageMaterial;
     @Column(name = "extra_notice", columnDefinition = "text") private String extraNotice;
 
+    // ── 상품정보 고시 (V21) ──
+    @Column(length = 120) private String brand;
+    @Column(length = 120) private String origin;
+    @Column(name = "grain_type", length = 120) private String grainType;
+    @Column(name = "calorie_info", length = 120) private String calorieInfo;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -65,6 +71,10 @@ public class ProductLabel {
     public String getCustomerService() { return customerService; }
     public String getPackageMaterial() { return packageMaterial; }
     public String getExtraNotice() { return extraNotice; }
+    public String getBrand() { return brand; }
+    public String getOrigin() { return origin; }
+    public String getGrainType() { return grainType; }
+    public String getCalorieInfo() { return calorieInfo; }
 
     public void setFoodType(String v) { this.foodType = v; }
     public void setShelfLife(String v) { this.shelfLife = v; }
@@ -76,4 +86,8 @@ public class ProductLabel {
     public void setCustomerService(String v) { this.customerService = v; }
     public void setPackageMaterial(String v) { this.packageMaterial = v; }
     public void setExtraNotice(String v) { this.extraNotice = v; }
+    public void setBrand(String v) { this.brand = v; }
+    public void setOrigin(String v) { this.origin = v; }
+    public void setGrainType(String v) { this.grainType = v; }
+    public void setCalorieInfo(String v) { this.calorieInfo = v; }
 }

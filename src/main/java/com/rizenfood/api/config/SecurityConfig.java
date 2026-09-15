@@ -55,12 +55,35 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/healthz").permitAll()
+                        // 업로드 이미지(상품·배너 등)는 공개로 읽힌다. 로컬 서빙은 WebConfig.
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         // 로그인·로그아웃은 토큰이 없는 상태에서 호출된다
                         .requestMatchers("/api/admin/auth/login", "/api/admin/auth/logout").permitAll()
+                        // 회원 가입·로그인·재발급·중복확인은 토큰 없이 호출된다
+                        .requestMatchers("/api/auth/signup", "/api/auth/login",
+                                "/api/auth/refresh", "/api/auth/check-email").permitAll()
+                        // 문의 접수는 비회원도 할 수 있다. 로그인 상태면 필터가 인증 정보를 심어주지만
+                        // 이 경로 자체는 토큰이 없어도 통과해야 한다.
+                        .requestMatchers("/api/inquiries").permitAll()
+                        // 장바구니도 비회원이 쓴다. 회원이면 필터가 심어준 인증 정보를
+                        // 컨트롤러가 읽어 회원 장바구니로 잇는다.
+                        .requestMatchers("/api/cart/**").permitAll()
+                        // 주문 생성·조회·결제도 비회원 허용. 회원 주문 소유권은 서비스가 검사하고,
+                        // 비회원 주문은 추측 불가능한 주문번호로만 접근한다.
+                        // (회원 주문 목록 /api/member/orders 는 아래 인증 규칙에 걸린다)
+                        .requestMatchers("/api/orders/**").permitAll()
+                        // 결제 설정(공개값: provider·storeId·channelKey). API 시크릿은 내보내지 않는다.
+                        .requestMatchers(HttpMethod.GET, "/api/payment/config").permitAll()
+                        // 포트원 웹훅. 로그인 대신 서명(HMAC)으로 검증한다 (PortOneWebhookController).
+                        .requestMatchers(HttpMethod.POST, "/api/payment/webhook/portone").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
+                        // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.
+                        .requestMatchers("/api/member/**").authenticated()
                         // 공개 조회는 열어둔다. 쓰기는 위 규칙에 걸린다.
-                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**", "/api/banners/**")
+                        .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**",
+                                "/api/banners/**", "/api/reviews/**", "/api/settings/**",
+                                "/api/shipping-policy")
                         .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authEntryPoint))

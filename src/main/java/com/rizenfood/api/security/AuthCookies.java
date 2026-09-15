@@ -18,7 +18,15 @@ import jakarta.servlet.http.HttpServletRequest;
 public class AuthCookies {
 
     public static final String ADMIN_TOKEN = "rizen_admin_token";
+    public static final String MEMBER_ACCESS = "rizen_member_token";
+    public static final String MEMBER_REFRESH = "rizen_member_refresh";
+    /** 비회원 장바구니 식별자. 인증 토큰이 아니라 장바구니 소유권만 나타낸다. */
+    public static final String CART_GUEST = "rizen_cart";
     private static final String ADMIN_PATH = "/";
+    /** 리프레시 토큰은 재발급 엔드포인트에만 실리게 경로를 좁힌다. */
+    private static final String REFRESH_PATH = "/api/auth";
+    /** 게스트 장바구니 토큰 유효기간(초). 30일. */
+    private static final long GUEST_CART_MAX_AGE = 60L * 60 * 24 * 30;
 
     private final JwtProperties properties;
 
@@ -42,12 +50,86 @@ public class AuthCookies {
     }
 
     public String readAdminToken(HttpServletRequest request) {
+        return read(request, ADMIN_TOKEN);
+    }
+
+    // ── 회원 쿠키 ──────────────────────────────────────────────
+
+    public ResponseCookie memberAccess(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(MEMBER_ACCESS, token)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(ADMIN_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    public ResponseCookie memberRefresh(String token, long maxAgeSeconds) {
+        return ResponseCookie.from(MEMBER_REFRESH, token)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(REFRESH_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    /** 로그아웃. 두 쿠키를 같은 속성으로 만료시킨다. */
+    public ResponseCookie expiredMemberAccess() {
+        return memberAccess("", 0);
+    }
+
+    public ResponseCookie expiredMemberRefresh() {
+        return memberRefresh("", 0);
+    }
+
+    public String readMemberAccess(HttpServletRequest request) {
+        return read(request, MEMBER_ACCESS);
+    }
+
+    // ── 게스트 장바구니 쿠키 ──────────────────────────────────
+    //
+    // 인증 토큰이 아니라 "이 브라우저의 장바구니는 이것" 이라는 식별자다.
+    // 그래도 HttpOnly 로 둔다 — 자바스크립트가 만질 이유가 없고, 노출을 줄인다.
+    // 사이트 전역에서 필요하므로(담기·장바구니·결제) 경로는 "/" 다.
+
+    public ResponseCookie cartGuest(String token) {
+        return ResponseCookie.from(CART_GUEST, token)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(ADMIN_PATH)
+                .maxAge(GUEST_CART_MAX_AGE)
+                .build();
+    }
+
+    /** 로그인 병합 후 게스트 쿠키를 지운다. */
+    public ResponseCookie expiredCartGuest() {
+        return ResponseCookie.from(CART_GUEST, "")
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(ADMIN_PATH)
+                .maxAge(0)
+                .build();
+    }
+
+    public String readCartGuest(HttpServletRequest request) {
+        return read(request, CART_GUEST);
+    }
+
+    public String readMemberRefresh(HttpServletRequest request) {
+        return read(request, MEMBER_REFRESH);
+    }
+
+    private String read(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
             return null;
         }
         for (Cookie cookie : cookies) {
-            if (ADMIN_TOKEN.equals(cookie.getName())) {
+            if (name.equals(cookie.getName())) {
                 return cookie.getValue();
             }
         }

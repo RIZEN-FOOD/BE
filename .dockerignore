@@ -1,0 +1,11 @@
+# 이미지에 넣지 않는 것 — 빌드 산출물, 로컬 업로드, 로그, 시크릿
+build/
+.gradle/
+uploads/
+*.log
+.env
+.env.*
+.idea/
+.vscode/
+deploy/
+.github/

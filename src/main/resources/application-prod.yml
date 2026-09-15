@@ -1,0 +1,41 @@
+# 운영 프로필 (SPRING_PROFILES_ACTIVE=prod)
+#
+# 값 대부분은 서버의 .env 에서 온다(deploy/.env.example 참고).
+# 여기에는 "운영이면 반드시 이래야 하는 것"만 둔다 — 환경변수 실수로 풀리지 않게 고정한다.
+
+spring:
+  datasource:
+    hikari:
+      # Supabase 무료 플랜 세션 풀러는 동시 연결 수가 적다. 서버 한 대 기준으로 작게 둔다.
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+      minimum-idle: 1
+      connection-timeout: 10000
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+  lifecycle:
+    # 재배포·재시작 때 처리 중인 요청(결제 확정 등)을 마치고 내려간다.
+    timeout-per-shutdown-phase: 20s
+
+server:
+  shutdown: graceful
+  tomcat:
+    # 2GB 서버 기준. 요청이 몰리면 대기열에서 기다리게 하고 메모리를 지킨다.
+    threads:
+      max: 100
+    accept-count: 100
+
+app:
+  jwt:
+    # 운영은 HTTPS 로만 쿠키가 오간다. 환경변수로 끌 수 없게 고정한다.
+    secure-cookie: true
+  client-ip:
+    header: ${CLIENT_IP_HEADER:CF-Connecting-IP}
+  storage:
+    type: ${STORAGE_TYPE:s3}
+
+logging:
+  level:
+    root: INFO
+    org.hibernate.SQL: WARN

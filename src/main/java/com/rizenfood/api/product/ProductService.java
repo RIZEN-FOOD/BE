@@ -43,6 +43,44 @@ public class ProductService {
                 .stream().map(mapper::toListItem).toList();
     }
 
+    /** 메인 히어로 캐러셀 슬라이드 (노출·메인노출 상품). */
+    @Transactional(readOnly = true)
+    public List<ProductDtos.HeroSlide> listHeroSlides() {
+        return repository.findByHeroEnabledTrueOrderByHeroSortAscIdAsc()
+                .stream().map(mapper::toHeroSlide).toList();
+    }
+
+    // ── 관리자: 메인 히어로 배너 ──────────────────────────
+    @Transactional(readOnly = true)
+    public List<ProductDtos.HeroBannerRow> listHeroBanners() {
+        return repository.findAllByOrderByHeroSortAscIdAsc()
+                .stream().map(mapper::toHeroBannerRow).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ProductDtos.HeroBannerDetail getHeroBanner(Long id) {
+        Product p = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+        return mapper.toHeroBannerDetail(p);
+    }
+
+    @Transactional
+    public void saveHeroBanner(Long id, ProductDtos.HeroBannerSaveRequest r) {
+        Product p = repository.findById(id)
+                .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+        p.setHeroHeadline(blankToNull(r.heroHeadline()));
+        p.setHeroSubcopy(blankToNull(r.heroSubcopy()));
+        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroImageKey(blankToNull(r.heroImageKey()));
+        p.setHeroBackdropKey(blankToNull(r.heroBackdropKey()));
+        p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
+        p.setHeroAccent3Key(blankToNull(r.heroAccent3Key()));
+        p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));
+        p.setHeroSort(r.heroSort());
+        p.setHeroEnabled(r.heroEnabled());
+        p.touch();
+    }
+
     @Transactional(readOnly = true)
     public ProductDtos.Detail getPublic(String slug) {
         // 숨긴 상품도 404 다. 403 을 주면 "그 주소에 뭔가 있다"는 걸 알려주는 셈이다.
@@ -54,8 +92,8 @@ public class ProductService {
     // ── 관리자 ───────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public Page<ProductDtos.ListItem> listForAdmin(Pageable pageable) {
-        return repository.findAll(pageable).map(mapper::toListItem);
+    public Page<ProductDtos.AdminListItem> listForAdmin(Pageable pageable) {
+        return repository.findAll(pageable).map(mapper::toAdminListItem);
     }
 
     @Transactional(readOnly = true)
@@ -128,6 +166,10 @@ public class ProductService {
     }
 
     /** 요청 값을 엔티티에 옮긴다. */
+    private static String blankToNull(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
     private void apply(Product p, ProductDtos.SaveRequest r) {
         if (r.discountPrice() != null && r.discountPrice() > r.price()) {
             throw new IllegalArgumentException("할인가가 정가보다 클 수 없습니다.");
@@ -146,6 +188,12 @@ public class ProductService {
         p.setServings(r.servings());
         p.setStock(r.stock() == null ? 0 : r.stock());
         p.setThumbnailKey(r.thumbnailKey());
+        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroImageKey(blankToNull(r.heroImageKey()));
+        p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
+        p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));
+        p.setHeroBackdropKey(blankToNull(r.heroBackdropKey()));
+        p.setSoldOut(r.soldOut());
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
         p.touch();
@@ -173,12 +221,20 @@ public class ProductService {
         }
         if (r.nutrition() != null) {
             var n = r.nutrition();
-            p.setNutrition(new Nutrition(n.servingSizeG(), n.kcal(), n.carbG(),
-                    n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg()));
+            // 이미 있으면 같은 행을 갱신한다. 새 인스턴스로 갈아끼우면 Hibernate 가
+            // 기존 행 DELETE 보다 새 행 INSERT 를 먼저 실행해 product_id 유니크 제약을 위반한다.
+            if (p.getNutrition() != null) {
+                p.getNutrition().update(n.servingSizeG(), n.kcal(), n.carbG(),
+                        n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg());
+            } else {
+                p.setNutrition(new Nutrition(n.servingSizeG(), n.kcal(), n.carbG(),
+                        n.proteinG(), n.fatG(), n.sugarG(), n.sodiumMg()));
+            }
         }
         if (r.label() != null) {
             var l = r.label();
-            ProductLabel label = new ProductLabel();
+            // 라벨도 마찬가지 — 있으면 재사용해 필드만 갱신(유니크 제약 충돌 방지).
+            ProductLabel label = p.getLabel() != null ? p.getLabel() : new ProductLabel();
             label.setFoodType(l.foodType());
             label.setShelfLife(l.shelfLife());
             label.setStorageMethod(l.storageMethod());
@@ -189,6 +245,10 @@ public class ProductService {
             label.setCustomerService(l.customerService());
             label.setPackageMaterial(l.packageMaterial());
             label.setExtraNotice(sanitizer.clean(l.extraNotice()));
+            label.setBrand(blankToNull(l.brand()));
+            label.setOrigin(blankToNull(l.origin()));
+            label.setGrainType(blankToNull(l.grainType()));
+            label.setCalorieInfo(blankToNull(l.calorieInfo()));
             p.setLabel(label);
         }
     }

@@ -40,7 +40,94 @@ public final class ProductDtos {
             String thumbnailUrl) {
     }
 
-    public record ImageItem(String url, String altText, String type) {
+    /** 메인 히어로 캐러셀 한 장. 제품별 배경색 + 누끼 이미지 + 떠다니는 장식들. */
+    public record HeroSlide(
+            Long id,
+            String slug,
+            String nameKo,       // 배너 메인 문구(hero_headline) 우선, 없으면 상품명
+            String subtitle,     // 배너 서브 문구(hero_subcopy) 우선, 없으면 부제
+            int effectivePrice,
+            boolean soldOut,
+            String heroColor,
+            String heroImageUrl,     // 메인 이미지(제품 봉투)
+            String heroBackdropUrl,  // 구성1 — 기둥
+            /** 구성 장식 3종. 고정 순서 [우상단, 우하단, 좌하단]. 없는 자리는 null. */
+            List<String> accentImageUrls,
+            /** 상세 페이지로 보낼 수 있는지(상품 공개 여부). 출시 예정처럼 비공개면 false. */
+            boolean linkable) {
+    }
+
+    // ── 관리자: 메인 히어로 배너 관리 ─────────────────────
+    /** 배너 목록 한 줄 */
+    public record HeroBannerRow(
+            Long id,
+            String slug,
+            String productName,   // 상품명(nameKo)
+            String headline,      // 표시될 메인 문구(오버라이드 or 상품명)
+            String heroImageUrl,  // 메인 이미지 썸네일
+            String heroColor,
+            int heroSort,
+            boolean heroEnabled,
+            boolean soldOut) {
+    }
+
+    /** 배너 편집 상세 — 키와 미리보기 URL 을 함께 준다 */
+    public record HeroBannerDetail(
+            Long id,
+            String slug,
+            String productName,
+            String heroHeadline,   // 오버라이드 값(비어있을 수 있음)
+            String heroSubcopy,
+            String defaultHeadline, // 비웠을 때 쓰일 상품명
+            String defaultSubcopy,  // 비웠을 때 쓰일 부제
+            String heroColor,
+            String heroImageKey,    String heroImageUrl,       // 메인 이미지
+            String heroBackdropKey, String heroBackdropUrl,    // 구성1 — 기둥
+            String heroAccent1Key,  String heroAccent1Url,     // 구성2 — 우상단
+            String heroAccent3Key,  String heroAccent3Url,     // 구성3 — 우하단
+            String heroAccent2Key,  String heroAccent2Url,     // 구성4 — 좌하단
+            int heroSort,
+            boolean heroEnabled) {
+    }
+
+    /** 배너 저장 요청 (이미지·색·문구·순서·노출) */
+    public record HeroBannerSaveRequest(
+            @jakarta.validation.constraints.Size(max = 200) String heroHeadline,
+            @jakarta.validation.constraints.Size(max = 300) String heroSubcopy,
+            @jakarta.validation.constraints.Pattern(
+                    regexp = "^$|^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                    message = "배경색은 #RRGGBB 형식이어야 합니다.")
+            String heroColor,
+            String heroImageKey,
+            String heroBackdropKey,
+            String heroAccent1Key,
+            String heroAccent3Key,
+            String heroAccent2Key,
+            int heroSort,
+            boolean heroEnabled) {
+    }
+
+    /**
+     * 관리자 목록 한 줄.
+     * 공개 목록과 달리 재고·노출 여부를 담는다.
+     * 재고 숫자는 공개하지 않는다(판매량 추정 우려). 관리자만 본다.
+     */
+    public record AdminListItem(
+            Long id,
+            String slug,
+            String nameKo,
+            int price,
+            Integer discountPrice,
+            int stock,
+            boolean soldOut,
+            boolean featured,
+            boolean visible,
+            int sortOrder,
+            String thumbnailUrl) {
+    }
+
+    /** baseKey 는 관리자 수정 폼이 기존 이미지를 다시 저장할 때 쓴다. */
+    public record ImageItem(String url, String baseKey, String altText, String type) {
     }
 
     public record OptionItem(Long id, String name, int price, int stock, boolean soldOut) {
@@ -58,7 +145,9 @@ public final class ProductDtos {
             String foodType, String shelfLife, String storageMethod,
             String manufacturer, String manufacturerAddr,
             String seller, String sellerAddr,
-            String customerService, String packageMaterial, String extraNotice) {
+            String customerService, String packageMaterial, String extraNotice,
+            // 상품정보 고시 (V21)
+            String brand, String origin, String grainType, String calorieInfo) {
     }
 
     public record PurchaseLinkItem(String channel, String url, String label) {
@@ -72,6 +161,16 @@ public final class ProductDtos {
             String nameEn,
             String subtitle,
             String descriptionHtml,
+            String thumbnailKey,
+            String heroColor,
+            String heroImageKey,
+            String heroImageUrl,
+            String heroAccent1Key,
+            String heroAccent1Url,
+            String heroAccent2Key,
+            String heroAccent2Url,
+            String heroBackdropKey,
+            String heroBackdropUrl,
             int price,
             Integer discountPrice,
             int effectivePrice,
@@ -79,6 +178,10 @@ public final class ProductDtos {
             Integer servings,
             int stock,
             boolean soldOut,
+            /** 관리자 수동 품절 플래그(재고와 무관). 폼 토글용. */
+            boolean soldOutManual,
+            boolean featured,
+            boolean visible,
             List<ImageItem> images,
             List<OptionItem> options,
             NutritionItem nutrition,
@@ -129,7 +232,12 @@ public final class ProductDtos {
             @Size(max = 300) String sellerAddr,
             @Size(max = 120) String customerService,
             @Size(max = 200) String packageMaterial,
-            String extraNotice) {
+            String extraNotice,
+            // 상품정보 고시 (V21)
+            @Size(max = 120) String brand,
+            @Size(max = 120) String origin,
+            @Size(max = 120) String grainType,
+            @Size(max = 120) String calorieInfo) {
     }
 
     public record PurchaseLinkRequest(
@@ -166,6 +274,17 @@ public final class ProductDtos {
             @Min(value = 0, message = "재고는 0 이상이어야 합니다.") Integer stock,
 
             String thumbnailKey,
+
+            @Pattern(regexp = "^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$",
+                    message = "배경색은 #RRGGBB 형식이어야 합니다.")
+            String heroColor,
+            String heroImageKey,
+            String heroAccent1Key,
+            String heroAccent2Key,
+            String heroBackdropKey,
+
+            /** 관리자 수동 품절. 재고와 무관하게 강제 품절 처리한다. */
+            boolean soldOut,
             boolean featured,
             boolean visible,
 

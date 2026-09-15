@@ -28,16 +28,87 @@ public class ProductMapper {
         return new ProductDtos.ListItem(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(), p.getWeightG(),
-                isSoldOut(p), p.isFeatured(),
+                computeSoldOut(p), p.isFeatured(),
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
+    }
+
+    public ProductDtos.AdminListItem toAdminListItem(Product p) {
+        return new ProductDtos.AdminListItem(
+                p.getId(), p.getSlug(), p.getNameKo(),
+                p.getPrice(), p.getDiscountPrice(),
+                p.getStock() == null ? 0 : p.getStock(),
+                computeSoldOut(p), p.isFeatured(), p.isVisible(), p.getSortOrder(),
+                variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
+    }
+
+    /** 메인 히어로 캐러셀용. 누끼 이미지가 없으면 대표 이미지로 폴백한다. */
+    public ProductDtos.HeroSlide toHeroSlide(Product p) {
+        String heroKey = (p.getHeroImageKey() != null && !p.getHeroImageKey().isBlank())
+                ? p.getHeroImageKey()
+                : p.getThumbnailKey();
+        // 고정 순서 [우상단(accent1), 우하단(accent3), 좌하단(accent2)] — 없는 자리는 null 유지
+        List<String> accents = java.util.Arrays.asList(
+                variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                variantUrl(p.getHeroAccent3Key(), ImageVariant.MEDIUM),
+                variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM));
+        // 배너 전용 문구 우선, 비어 있으면 상품명·부제로 폴백
+        String headline = notBlank(p.getHeroHeadline()) ? p.getHeroHeadline() : p.getNameKo();
+        String subcopy = notBlank(p.getHeroSubcopy()) ? p.getHeroSubcopy() : p.getSubtitle();
+        return new ProductDtos.HeroSlide(
+                p.getId(), p.getSlug(), headline, subcopy,
+                p.effectivePrice(), computeSoldOut(p),
+                p.getHeroColor(),
+                variantUrl(heroKey, ImageVariant.MEDIUM),
+                variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
+                accents,
+                p.isVisible());
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
+    }
+
+    // ── 관리자: 메인 히어로 배너 ──────────────────────────
+    public ProductDtos.HeroBannerRow toHeroBannerRow(Product p) {
+        String headline = notBlank(p.getHeroHeadline()) ? p.getHeroHeadline() : p.getNameKo();
+        return new ProductDtos.HeroBannerRow(
+                p.getId(), p.getSlug(), p.getNameKo(), headline,
+                variantUrl(p.getHeroImageKey(), ImageVariant.THUMBNAIL),
+                p.getHeroColor(), p.getHeroSort(), p.isHeroEnabled(), computeSoldOut(p));
+    }
+
+    public ProductDtos.HeroBannerDetail toHeroBannerDetail(Product p) {
+        return new ProductDtos.HeroBannerDetail(
+                p.getId(), p.getSlug(), p.getNameKo(),
+                p.getHeroHeadline(), p.getHeroSubcopy(),
+                p.getNameKo(), p.getSubtitle(),
+                p.getHeroColor(),
+                p.getHeroImageKey(),    variantUrl(p.getHeroImageKey(), ImageVariant.MEDIUM),
+                p.getHeroBackdropKey(), variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
+                p.getHeroAccent1Key(),  variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent3Key(),  variantUrl(p.getHeroAccent3Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent2Key(),  variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM),
+                p.getHeroSort(), p.isHeroEnabled());
     }
 
     public ProductDtos.Detail toDetail(Product p) {
         return new ProductDtos.Detail(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getDescriptionHtml(),
+                p.getThumbnailKey(),
+                p.getHeroColor(),
+                p.getHeroImageKey(),
+                variantUrl(p.getHeroImageKey(), ImageVariant.MEDIUM),
+                p.getHeroAccent1Key(),
+                variantUrl(p.getHeroAccent1Key(), ImageVariant.MEDIUM),
+                p.getHeroAccent2Key(),
+                variantUrl(p.getHeroAccent2Key(), ImageVariant.MEDIUM),
+                p.getHeroBackdropKey(),
+                variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
-                p.getWeightG(), p.getServings(), p.getStock(), isSoldOut(p),
+                p.getWeightG(), p.getServings(), p.getStock(), computeSoldOut(p),
+                p.isSoldOut(),
+                p.isFeatured(), p.isVisible(),
                 map(p.getImages(), this::toImageItem),
                 map(p.getOptions().stream().filter(ProductOption::isVisible).toList(),
                         o -> toOptionItem(p, o)),
@@ -49,10 +120,16 @@ public class ProductMapper {
     }
 
     /**
-     * 옵션이 있으면 옵션 재고를, 없으면 상품 재고를 본다.
-     * 옵션이 전부 품절이면 상품도 품절이다.
+     * 실제 품절 여부.
+     * 1) 관리자가 수동 품절(sold_out)을 켰으면 무조건 품절,
+     * 2) 아니면 재고로 판정 — 옵션이 있으면 옵션 재고를, 없으면 상품 재고를 본다.
      */
-    private boolean isSoldOut(Product p) {
+    private boolean computeSoldOut(Product p) {
+        if (p.isSoldOut()) return true;
+        return isStockSoldOut(p);
+    }
+
+    private boolean isStockSoldOut(Product p) {
         List<ProductOption> visible = p.getOptions().stream().filter(ProductOption::isVisible).toList();
         if (!visible.isEmpty()) {
             return visible.stream().allMatch(o -> o.getStock() <= 0);
@@ -62,7 +139,8 @@ public class ProductMapper {
 
     private ProductDtos.ImageItem toImageItem(ProductImage i) {
         return new ProductDtos.ImageItem(
-                variantUrl(i.getImageKey(), ImageVariant.MEDIUM), i.getAltText(), i.getType());
+                variantUrl(i.getImageKey(), ImageVariant.MEDIUM),
+                i.getImageKey(), i.getAltText(), i.getType());
     }
 
     private ProductDtos.OptionItem toOptionItem(Product p, ProductOption o) {
@@ -93,7 +171,8 @@ public class ProductMapper {
                 l.getFoodType(), l.getShelfLife(), l.getStorageMethod(),
                 l.getManufacturer(), l.getManufacturerAddr(),
                 l.getSeller(), l.getSellerAddr(),
-                l.getCustomerService(), l.getPackageMaterial(), l.getExtraNotice());
+                l.getCustomerService(), l.getPackageMaterial(), l.getExtraNotice(),
+                l.getBrand(), l.getOrigin(), l.getGrainType(), l.getCalorieInfo());
     }
 
     private ProductDtos.PurchaseLinkItem toPurchaseLinkItem(PurchaseLink l) {

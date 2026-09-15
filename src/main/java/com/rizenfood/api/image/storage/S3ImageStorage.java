@@ -10,11 +10,12 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 /**
- * 운영 저장소. S3 에 올리고 CloudFront 로 서빙한다.
+ * 운영 저장소. S3 호환 저장소(Cloudflare R2 또는 AWS S3)에 올리고 CDN 도메인으로 서빙한다.
  *
- * 버킷은 퍼블릭 읽기를 열지 않는다. CloudFront(OAC)만 읽게 두고
- * 공개 URL 은 CloudFront 도메인을 쓴다. 그래야 버킷 주소가 노출되지 않고
- * 캐시·압축·HTTPS 를 CloudFront 가 맡는다.
+ * 공개 URL 은 저장소 주소가 아니라 CDN 도메인(app.storage.s3.public-base-url)을 쓴다.
+ *   - R2: 버킷에 사용자 지정 도메인(img.도메인)을 연결한다. 캐시·HTTPS 는 Cloudflare 가 맡는다.
+ *   - S3: 버킷 퍼블릭 읽기를 열지 않고 CloudFront(OAC)만 읽게 둔다.
+ * 클라이언트 설정은 S3StorageConfig.
  */
 @Component
 @ConditionalOnProperty(name = "app.storage.type", havingValue = "s3")

@@ -69,6 +69,45 @@ public class Product {
     @Column(name = "thumbnail_key", length = 500)
     private String thumbnailKey;
 
+    /** 히어로 슬라이드 배경색 (#RRGGBB). 비우면 프론트 기본색. */
+    @Column(name = "hero_color", length = 9)
+    private String heroColor;
+
+    /** 히어로에 띄울 누끼(투명배경) 이미지 키. 비우면 대표 이미지로 폴백. */
+    @Column(name = "hero_image_key", length = 500)
+    private String heroImageKey;
+
+    /** 히어로 슬라이드 장식(떠다니는 재료) 이미지 키. 선택. */
+    @Column(name = "hero_accent1_key", length = 500)
+    private String heroAccent1Key;
+
+    @Column(name = "hero_accent2_key", length = 500)
+    private String heroAccent2Key;
+
+    /** 히어로: 제품 뒤에 세로로 겹치는 배경(스플래시) 이미지 키. */
+    @Column(name = "hero_backdrop_key", length = 500)
+    private String heroBackdropKey;
+
+    /** 구성 이미지 3 — 오른쪽 하단 장식 (accent1=우상단, accent2=좌하단) */
+    @Column(name = "hero_accent3_key", length = 500)
+    private String heroAccent3Key;
+
+    /** 배너 전용 메인 문구. 비우면 상품명(nameKo)을 쓴다. */
+    @Column(name = "hero_headline", length = 200)
+    private String heroHeadline;
+
+    /** 배너 전용 서브 문구. 비우면 부제(subtitle)를 쓴다. */
+    @Column(name = "hero_subcopy", length = 300)
+    private String heroSubcopy;
+
+    /** 히어로 배너 표시 순서 (작을수록 먼저) */
+    @Column(name = "hero_sort", nullable = false)
+    private int heroSort = 0;
+
+    /** 히어로 배너 노출 여부(배너별 활성/비활성) */
+    @Column(name = "hero_enabled", nullable = false)
+    private boolean heroEnabled = false;
+
     /** 메인 페이지 노출 */
     @Column(name = "is_featured", nullable = false)
     private boolean featured = false;
@@ -79,6 +118,10 @@ public class Product {
     /** 사이트 노출. false 면 공개 API 가 반환하지 않는다. */
     @Column(nullable = false)
     private boolean visible = false;
+
+    /** 관리자 수동 품절. 재고와 무관하게 강제로 품절 처리한다. */
+    @Column(name = "sold_out", nullable = false)
+    private boolean soldOut = false;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
@@ -179,9 +222,20 @@ public class Product {
     public Integer getServings() { return servings; }
     public Integer getStock() { return stock; }
     public String getThumbnailKey() { return thumbnailKey; }
+    public String getHeroColor() { return heroColor; }
+    public String getHeroImageKey() { return heroImageKey; }
+    public String getHeroAccent1Key() { return heroAccent1Key; }
+    public String getHeroAccent2Key() { return heroAccent2Key; }
+    public String getHeroBackdropKey() { return heroBackdropKey; }
+    public String getHeroAccent3Key() { return heroAccent3Key; }
+    public String getHeroHeadline() { return heroHeadline; }
+    public String getHeroSubcopy() { return heroSubcopy; }
+    public int getHeroSort() { return heroSort; }
+    public boolean isHeroEnabled() { return heroEnabled; }
     public boolean isFeatured() { return featured; }
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
+    public boolean isSoldOut() { return soldOut; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ProductImage> getImages() { return images; }
     public List<ProductOption> getOptions() { return options; }
@@ -201,7 +255,18 @@ public class Product {
     public void setServings(Integer servings) { this.servings = servings; }
     public void setStock(Integer stock) { this.stock = stock; }
     public void setThumbnailKey(String thumbnailKey) { this.thumbnailKey = thumbnailKey; }
+    public void setHeroColor(String heroColor) { this.heroColor = heroColor; }
+    public void setHeroImageKey(String heroImageKey) { this.heroImageKey = heroImageKey; }
+    public void setHeroAccent1Key(String heroAccent1Key) { this.heroAccent1Key = heroAccent1Key; }
+    public void setHeroAccent2Key(String heroAccent2Key) { this.heroAccent2Key = heroAccent2Key; }
+    public void setHeroBackdropKey(String heroBackdropKey) { this.heroBackdropKey = heroBackdropKey; }
+    public void setHeroAccent3Key(String heroAccent3Key) { this.heroAccent3Key = heroAccent3Key; }
+    public void setHeroHeadline(String heroHeadline) { this.heroHeadline = heroHeadline; }
+    public void setHeroSubcopy(String heroSubcopy) { this.heroSubcopy = heroSubcopy; }
+    public void setHeroSort(int heroSort) { this.heroSort = heroSort; }
+    public void setHeroEnabled(boolean heroEnabled) { this.heroEnabled = heroEnabled; }
     public void setFeatured(boolean featured) { this.featured = featured; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }
+    public void setSoldOut(boolean soldOut) { this.soldOut = soldOut; }
 }

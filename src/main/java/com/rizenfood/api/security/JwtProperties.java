@@ -12,6 +12,10 @@ public record JwtProperties(
         String secret,
         /** 관리자 액세스 토큰 유효시간(분) */
         long adminExpiryMinutes,
+        /** 회원 액세스 토큰 유효시간(분). 기획서 §6.2: 30분 */
+        long memberAccessMinutes,
+        /** 회원 리프레시 토큰 유효기간(일). 기획서 §6.2: 14일 */
+        long memberRefreshDays,
         /** 쿠키에 Secure 를 붙일지. 운영은 반드시 true. */
         boolean secureCookie,
         /** 쿠키 SameSite 값 */
@@ -20,6 +24,12 @@ public record JwtProperties(
     public JwtProperties {
         if (adminExpiryMinutes <= 0) {
             adminExpiryMinutes = 240; // 4시간
+        }
+        if (memberAccessMinutes <= 0) {
+            memberAccessMinutes = 30;
+        }
+        if (memberRefreshDays <= 0) {
+            memberRefreshDays = 14;
         }
         if (sameSite == null || sameSite.isBlank()) {
             sameSite = "Lax";
