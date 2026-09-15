@@ -59,6 +59,18 @@ public class ShippingPolicy {
     }
 
     /**
+     * 도서산간 추가 배송비까지 더한 배송비.
+     * 도서산간 추가분은 택배사가 따로 받는 운임이라, 무료배송 금액을 넘어도 받는다.
+     */
+    public int feeFor(int itemsAmount, boolean island) {
+        int fee = feeFor(itemsAmount);
+        if (island && itemsAmount > 0) {
+            fee += islandExtraFee;
+        }
+        return fee;
+    }
+
+    /**
      * 관리자 수정. 금액 항목만 바꾼다. 활성 여부(visible)는 건드리지 않는다
      * — 유일한 활성 정책이 사라져 결제 배송비가 0으로 새는 것을 막기 위해서다.
      */

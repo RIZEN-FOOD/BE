@@ -30,4 +30,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** 방치된 미결제 주문 정리용 (결제창 이탈 등). */
     @EntityGraph(attributePaths = "items")
     java.util.List<Order> findByStatusAndOrderedAtBefore(String status, java.time.Instant before);
+
+    /** 출고용 엑셀. 한 번에 최대 1,000건, 오래된 주문부터. */
+    java.util.List<Order> findTop1000ByStatusInOrderByOrderedAtAsc(java.util.Collection<String> statuses);
 }

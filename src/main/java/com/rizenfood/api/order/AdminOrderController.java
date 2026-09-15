@@ -1,9 +1,17 @@
 package com.rizenfood.api.order;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,12 +33,15 @@ import jakarta.validation.Valid;
 
 /**
  * 관리자 주문 관리.
- * 목록·상세 조회, 상태 변경, 운송장 등록. 모든 작업은 감사 로그에 남긴다.
+ * 목록·상세 조회, 상태 변경, 운송장 등록, 출고용 엑셀. 모든 작업은 감사 로그에 남긴다.
  */
 @RestController
 @RequestMapping("/api/admin/orders")
 @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
 public class AdminOrderController {
+
+    private static final MediaType XLSX =
+            MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final OrderService orderService;
     private final AuditService auditService;
@@ -54,6 +65,32 @@ public class AdminOrderController {
                 "page", result.getNumber(),
                 "totalPages", result.getTotalPages(),
                 "totalCount", result.getTotalElements());
+    }
+
+    /**
+     * 출고 대행사에 넘길 주문 엑셀(.xlsx).
+     * 받는 분 연락처·주소가 복호화돼 담기므로 내려받을 때마다 감사 로그를 남긴다.
+     */
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportForShipping(
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedAdmin admin,
+            HttpServletRequest httpRequest) {
+
+        OrderService.ShippingExport export = orderService.adminExportForShipping(status);
+        String scope = (status == null || status.isBlank()) ? "출고 대기" : status;
+        auditService.record(admin.id(), admin.displayName(), "EXPORT",
+                "ORDER", null, "출고용 엑셀 " + scope + " " + export.orderCount() + "건", httpRequest);
+
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename("라이즌푸드_출고_" + today + ".xlsx", StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .contentType(XLSX)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .cacheControl(CacheControl.noStore())
+                .body(export.file());
     }
 
     @GetMapping("/{orderNo}")

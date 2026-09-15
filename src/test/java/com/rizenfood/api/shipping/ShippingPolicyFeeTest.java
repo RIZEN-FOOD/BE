@@ -45,4 +45,30 @@ class ShippingPolicyFeeTest {
     void alwaysBaseFeeWhenNoThreshold() {
         assertThat(policy(3000, null).feeFor(1_000_000)).isEqualTo(3000);
     }
+
+    private ShippingPolicy islandPolicy() {
+        ShippingPolicy p = policy(3500, 50000);
+        ReflectionTestUtils.setField(p, "islandExtraFee", 3000);
+        return p;
+    }
+
+    @Test
+    @DisplayName("도서산간이면 기본 배송비에 추가분을 더한다")
+    void islandAddsExtra() {
+        assertThat(islandPolicy().feeFor(30_000, true)).isEqualTo(6500);
+        assertThat(islandPolicy().feeFor(30_000, false)).isEqualTo(3500);
+    }
+
+    @Test
+    @DisplayName("무료배송 금액을 넘어도 도서산간 추가분은 받는다")
+    void islandExtraEvenWhenFree() {
+        assertThat(islandPolicy().feeFor(50_000, true)).isEqualTo(3000);
+        assertThat(islandPolicy().feeFor(50_000, false)).isZero();
+    }
+
+    @Test
+    @DisplayName("빈 장바구니는 도서산간이어도 0")
+    void islandZeroWhenEmpty() {
+        assertThat(islandPolicy().feeFor(0, true)).isZero();
+    }
 }

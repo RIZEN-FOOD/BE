@@ -83,7 +83,7 @@ public class SecurityConfig {
                         // 공개 조회는 열어둔다. 쓰기는 위 규칙에 걸린다.
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**",
                                 "/api/banners/**", "/api/reviews/**", "/api/settings/**",
-                                "/api/shipping-policy")
+                                "/api/shipping-policy", "/api/shipping-policy/island")
                         .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authEntryPoint))

@@ -24,6 +24,7 @@ import com.rizenfood.api.product.Product;
 import com.rizenfood.api.product.ProductOption;
 import com.rizenfood.api.product.ProductOptionRepository;
 import com.rizenfood.api.product.ProductRepository;
+import com.rizenfood.api.shipping.IslandZipService;
 import com.rizenfood.api.shipping.ShippingPolicy;
 import com.rizenfood.api.shipping.ShippingPolicyRepository;
 
@@ -55,6 +56,7 @@ public class OrderService {
     private final OrderNoGenerator orderNoGenerator;
     private final PaymentGateway paymentGateway;
     private final CartRepository cartRepository;
+    private final IslandZipService islandZipService;
 
     public OrderService(CartItemRepository cartItemRepository,
                         ProductRepository productRepository,
@@ -68,7 +70,8 @@ public class OrderService {
                         PhoneCipher phoneCipher,
                         OrderNoGenerator orderNoGenerator,
                         PaymentGateway paymentGateway,
-                        CartRepository cartRepository) {
+                        CartRepository cartRepository,
+                        IslandZipService islandZipService) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -82,6 +85,7 @@ public class OrderService {
         this.orderNoGenerator = orderNoGenerator;
         this.paymentGateway = paymentGateway;
         this.cartRepository = cartRepository;
+        this.islandZipService = islandZipService;
     }
 
     /** 재고 부족으로 주문을 만들 수 없을 때. 409 로 매핑된다. */
@@ -131,7 +135,9 @@ public class OrderService {
         int itemsAmount = lines.stream().mapToInt(l -> l.unitPrice * l.qty).sum();
         ShippingPolicy policy = shippingPolicyRepository
                 .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        int shippingFee = policy != null ? policy.feeFor(itemsAmount) : 0;
+        // 도서산간 추가 배송비는 받는 곳 우편번호로 서버가 판정한다 (클라이언트 값 안 받음).
+        boolean island = islandZipService.isIsland(req.zipcode());
+        int shippingFee = policy != null ? policy.feeFor(itemsAmount, island) : 0;
         int discount = 0; // 쿠폰 미구현
         int total = itemsAmount + shippingFee - discount;
 
@@ -512,6 +518,34 @@ public class OrderService {
                 .orElseGet(() -> deliveryRepository.save(new Delivery(o.getId())));
         delivery.ship(carrier, trackingNo);
         o.applyStatus(Order.Status.SHIPPED.name());
+    }
+
+    /** 출고용 엑셀에 담을 기본 상태: 결제는 끝났고 아직 출고 전인 주문. */
+    private static final List<String> SHIP_WAITING = List.of(
+            Order.Status.PAID.name(), Order.Status.PREPARING.name());
+
+    /** 만든 엑셀 파일과 담긴 주문 수(감사 로그용). */
+    public record ShippingExport(byte[] file, int orderCount) {
+    }
+
+    /**
+     * 출고 대행사(3PL)에 넘길 주문 엑셀.
+     * status 를 주면 그 상태만, 비우면 출고 대기(결제완료·상품준비중)를 오래된 순으로 담는다.
+     */
+    @Transactional(readOnly = true)
+    public ShippingExport adminExportForShipping(String status) {
+        List<String> statuses;
+        if (status == null || status.isBlank()) {
+            statuses = SHIP_WAITING;
+        } else {
+            try {
+                statuses = List.of(Order.Status.valueOf(status).name());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("알 수 없는 주문 상태입니다.");
+            }
+        }
+        List<Order> orders = orderRepository.findTop1000ByStatusInOrderByOrderedAtAsc(statuses);
+        return new ShippingExport(OrderShippingSheet.build(orders, this::plain), orders.size());
     }
 
     /** 관리자 상세 표시용 복호화. 실패하면 빈 문자열. */

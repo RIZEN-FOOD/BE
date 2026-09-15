@@ -23,7 +23,11 @@ import com.rizenfood.api.product.ProductRepository;
  * 이므로, 재고가 모자라면 갱신 행이 0이라 주문이 막히고 재고는 절대 음수가 되지 않는다.
  * 동시 주문이 들어와도 조건이 원자적으로 평가돼 초과 판매(oversell)가 없다.
  */
-@SpringBootTest
+// 앱이 뜨려면 비밀값이 필요하다. .env 없이도 돌도록 테스트 전용 값을 넣는다(운영 값 아님).
+@SpringBootTest(properties = {
+        "app.crypto.phone-key=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        "app.jwt.secret=test-only-jwt-secret-at-least-32-bytes-long"
+})
 // Docker 를 못 찾는 환경(예: 일부 로컬)에서는 실패가 아니라 건너뛴다.
 // CI 등 Docker 가 있는 환경에서는 실제 PostgreSQL 로 실행된다.
 @Testcontainers(disabledWithoutDocker = true)

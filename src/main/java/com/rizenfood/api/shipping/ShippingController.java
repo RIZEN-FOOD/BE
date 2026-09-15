@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -19,9 +20,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ShippingController {
 
     private final ShippingPolicyRepository repository;
+    private final IslandZipService islandZipService;
 
-    public ShippingController(ShippingPolicyRepository repository) {
+    public ShippingController(ShippingPolicyRepository repository, IslandZipService islandZipService) {
         this.repository = repository;
+        this.islandZipService = islandZipService;
     }
 
     @GetMapping
@@ -33,5 +36,18 @@ public class ShippingController {
             body.put("islandExtraFee", p.getIslandExtraFee());
         });
         return body;
+    }
+
+    /**
+     * 주문서 미리보기용: 이 우편번호에 도서산간 추가 배송비가 붙는지.
+     * 화면 표시용일 뿐이다 — 실제 금액은 주문 생성 때 서버가 다시 계산한다.
+     */
+    @GetMapping("/island")
+    public Map<String, Object> island(@RequestParam String zipcode) {
+        int extra = islandZipService.isIsland(zipcode)
+                ? repository.findFirstByVisibleTrueOrderByIdAsc()
+                        .map(ShippingPolicy::getIslandExtraFee).orElse(0)
+                : 0;
+        return Map.of("island", extra > 0, "extraFee", extra);
     }
 }
