@@ -34,7 +34,7 @@
 
 ## 3. 웹훅
 
-- 주소: `https://api.도메인/api/payment/webhook/portone`
+- 주소: `https://www.도메인/api/payment/webhook/portone` (Caddy 가 화면 서버를 거치지 않고 API 로 원본 그대로 보낸다)
 - 버전: 최신(2024-04-25 이후) — 본문 `data.paymentId` 를 쓴다
 - 콘솔의 "웹훅 테스트 호출" 로 한 번 보내 보고 서버 로그에서 확인한다
   - `포트원 웹훅 ... 결과=NOT_FOUND` → 서명 통과(테스트 결제번호라 주문이 없을 뿐) ✅

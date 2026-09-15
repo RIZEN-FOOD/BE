@@ -22,9 +22,12 @@ RUN ./gradlew --no-daemon bootJar -x test \
 
 # ── 실행 ──────────────────────────────────────────────
 FROM eclipse-temurin:21-jre
-RUN useradd --system --uid 10001 --no-create-home app
+RUN useradd --system --uid 10001 --no-create-home app \
+    && mkdir -p /app/uploads && chown app /app/uploads
 WORKDIR /app
 COPY --from=build /app.jar /app/app.jar
+# 업로드 사진 저장 위치(STORAGE_TYPE=local). 도커 볼륨을 붙이면 이 폴더의 소유자(app)가 그대로 넘어간다.
+VOLUME ["/app/uploads"]
 
 # 컨테이너 메모리 한도(docker-compose 의 mem_limit)의 70% 를 힙으로 쓴다.
 # 메모리가 바닥나면 어정쩡하게 버티지 말고 종료해 재시작 정책이 다시 띄우게 한다.

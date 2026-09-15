@@ -99,6 +99,18 @@ public class ApiExceptionHandler {
                 .body(Map.of("error", "FORBIDDEN", "message", "이 작업을 수행할 권한이 없습니다."));
     }
 
+    /**
+     * 없는 정적 파일(업로드 사진 /uploads/** 등).
+     * 이걸 잡지 않으면 아래 Exception 핸들러가 500 으로 처리해, 사진 하나 빠진 것이 서버 장애처럼 보이고
+     * 오류 로그가 쌓인다. 404 로 준다.
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, String>> handleNoResource(
+            org.springframework.web.servlet.resource.NoResourceFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", "NOT_FOUND", "message", "요청한 파일을 찾을 수 없습니다."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, String>> handleUnexpected(Exception e) {
         // 자세한 내용은 서버 로그에만 남긴다.

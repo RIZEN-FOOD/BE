@@ -1,12 +1,12 @@
 # 운영 프로필 (SPRING_PROFILES_ACTIVE=prod)
 #
 # 값 대부분은 서버의 .env 에서 온다(deploy/.env.example 참고).
-# 여기에는 "운영이면 반드시 이래야 하는 것"만 둔다 — 환경변수 실수로 풀리지 않게 고정한다.
+# 여기에는 "운영이면 반드시 이래야 하는 것"과 운영 구성(Lightsail 한 대)에 맞는 기본값만 둔다.
 
 spring:
   datasource:
     hikari:
-      # Supabase 무료 플랜 세션 풀러는 동시 연결 수가 적다. 서버 한 대 기준으로 작게 둔다.
+      # DB 는 같은 서버의 PostgreSQL(max_connections=20, 2GB 서버). 5 면 충분하다.
       maximum-pool-size: ${DB_POOL_SIZE:5}
       minimum-idle: 1
       connection-timeout: 10000
@@ -23,7 +23,7 @@ server:
   tomcat:
     # 2GB 서버 기준. 요청이 몰리면 대기열에서 기다리게 하고 메모리를 지킨다.
     threads:
-      max: 100
+      max: 50
     accept-count: 100
 
 app:
@@ -31,9 +31,11 @@ app:
     # 운영은 HTTPS 로만 쿠키가 오간다. 환경변수로 끌 수 없게 고정한다.
     secure-cookie: true
   client-ip:
-    header: ${CLIENT_IP_HEADER:CF-Connecting-IP}
+    # Caddy 가 실제 연결 주소로 덮어쓰는 헤더 (deploy/Caddyfile). 손님이 보낸 값은 남지 않는다.
+    header: ${CLIENT_IP_HEADER:X-Real-IP}
   storage:
-    type: ${STORAGE_TYPE:s3}
+    # 사진은 서버 디스크에 두고 Caddy 가 /uploads 로 서빙한다.
+    type: ${STORAGE_TYPE:local}
 
 logging:
   level:

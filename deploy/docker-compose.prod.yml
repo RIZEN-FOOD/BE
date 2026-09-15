@@ -1,41 +1,98 @@
-# 운영 서버(2GB 리눅스)에서 띄우는 구성.
+# 운영 서버 (AWS Lightsail 2GB · 서울) 한 대에 전부 올리는 구성.
 #
 #   cd /opt/rizen && docker compose -f docker-compose.prod.yml up -d
 #
-# ★ API 포트를 서버 밖으로 열지 않는다(ports 없음, expose 만).
-#   인터넷에서 들어오는 요청은 cloudflared(Cloudflare Tunnel)가 안쪽에서 바깥으로 연결해 받아 준다.
-#   그래서 서버 방화벽은 들어오는 연결을 전부 막아 둔다(SSH 제외).
+#   손님 ─ https://www.도메인 ─> caddy(HTTPS 자동 인증서)
+#                                   ├─ /api/*, /uploads/*  ─> api (Spring Boot)
+#                                   └─ 그 외 화면           ─> web (Next.js)
+#                                 api ─> db (PostgreSQL, 인터넷 비공개)
 #
-# Cloudflare 대시보드 → Zero Trust → Tunnels → Public hostname
-#   api.도메인  →  http://api:8080
+# ★ 서버 밖으로 여는 포트는 caddy 의 80·443 뿐이다. api·web·db 는 도커 내부망에서만 보인다.
+#   Lightsail 방화벽: 80·443 허용, SSH(22)는 개발자 IP 만.
+# ★ DB·업로드 사진이 이 서버 안에 있다 — backup.sh(6시간마다) + Lightsail 자동 스냅샷(매일)이 생명줄이다.
+#
+# 메모리(2GB): db 384MB · api 768MB · web 384MB · caddy 128MB + 운영체제. 스왑 2GB 필수(deploy/README.md).
+# 부족해지면 Lightsail 스냅샷으로 4GB 요금제에 새로 만들고 아래 한도만 올린다.
 
 services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN 을 .env 에 넣어야 한다 (www 없이, 예 rizenfood.co.kr)}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL(인증서 만료 안내 받을 메일)을 .env 에 넣어야 한다}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - api
+    mem_limit: 128m
+    logging: &logs
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    image: ghcr.io/rizen-food/fe:${WEB_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      # 서버 컴포넌트가 API 를 부르는 내부 주소
+      API_ORIGIN: http://api:8080
+      NODE_OPTIONS: --max-old-space-size=256
+    depends_on:
+      - api
+    expose:
+      - "3000"
+    mem_limit: 384m
+    logging: *logs
+
   api:
     image: ghcr.io/rizen-food/be:${API_TAG:-latest}
     restart: unless-stopped
     env_file: .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
-    # 2GB 서버: 운영체제·Docker·cloudflared 몫을 남기고 API 에 1.2GB. 힙은 이 중 70%.
-    mem_limit: 1200m
+      DB_URL: jdbc:postgresql://db:5432/rizenfood
+      STORAGE_LOCAL_PATH: /app/uploads
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
     expose:
       - "8080"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
+    # 힙은 이 한도의 70% (Dockerfile 의 MaxRAMPercentage) ≈ 540MB
+    mem_limit: 768m
+    logging: *logs
 
-  cloudflared:
-    image: cloudflare/cloudflared:latest
+  db:
+    image: postgres:16
     restart: unless-stopped
-    command: tunnel --no-autoupdate run
     environment:
-      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
-    depends_on:
-      - api
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+      POSTGRES_DB: rizenfood
+      POSTGRES_USER: ${DB_USERNAME:-rizen}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 를 .env 에 넣어야 한다}
+    # 2GB 서버 기준으로 작게. API 연결 풀(5) + 백업·관리용 여유.
+    command: ["postgres", "-c", "shared_buffers=96MB", "-c", "max_connections=20", "-c", "work_mem=4MB"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-rizen} -d rizenfood"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logs
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

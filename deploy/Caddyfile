@@ -1,0 +1,43 @@
+# 운영 HTTPS 입구 (Caddy). 인증서는 Let's Encrypt 로 자동 발급·갱신된다.
+# DOMAIN 은 .env 의 값(www 없이). 가비아 DNS 에서 @ 와 www 를 서버 고정 IP 로 향하게 해야 발급된다.
+{
+	email {$ACME_EMAIL}
+}
+
+# 맨도메인 → www 로
+{$DOMAIN} {
+	redir https://www.{$DOMAIN}{uri} permanent
+}
+
+www.{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# API·업로드 사진은 화면 서버를 거치지 않고 API 로 곧장 보낸다.
+	# (한 번 덜 거쳐 빠르고, 포트원 웹훅 서명 검증에 필요한 원본 본문이 그대로 간다)
+	@api path /api/* /uploads/*
+	handle @api {
+		reverse_proxy api:8080 {
+			# 접속자 IP. 손님이 보낸 X-Real-IP 는 여기서 실제 연결 주소로 덮어쓴다 → 위조 불가.
+			# API 는 이 헤더만 믿는다 (CLIENT_IP_HEADER=X-Real-IP).
+			header_up X-Real-IP {remote_host}
+		}
+	}
+
+	# 관리자 화면을 특정 IP 에서만 열고 싶으면 아래 주석을 풀고 IP 를 넣는다 (선택).
+	# @adminBlocked {
+	# 	path /admin* /api/admin/*
+	# 	not remote_ip 203.0.113.10
+	# }
+	# respond @adminBlocked 403
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
