@@ -23,6 +23,10 @@ import com.rizenfood.api.product.ProductRepository;
 @Service
 public class ClaimService {
 
+    /** 아직 끝나지 않은 요청 상태. */
+    private static final List<String> OPEN_STATUSES = List.of(
+            OrderClaim.Status.REQUESTED.name(), OrderClaim.Status.APPROVED.name());
+
     private final OrderRepository orderRepository;
     private final OrderClaimRepository claimRepository;
     private final PaymentRepository paymentRepository;
@@ -67,6 +71,12 @@ public class ClaimService {
             }
         }
 
+        // 처리 중인 요청이 있으면 새로 받지 않는다. 같은 주문에 취소가 두 건 쌓이면
+        // 둘 다 완료 처리될 때 재고가 두 번 돌아온다.
+        if (claimRepository.existsByOrderIdAndStatusIn(order.getId(), OPEN_STATUSES)) {
+            throw new IllegalArgumentException("이미 접수된 요청이 있습니다. 처리 결과를 기다려 주세요.");
+        }
+
         OrderClaim claim = claimRepository.save(
                 new OrderClaim(order.getId(), type, req.reasonCode(), blankToNull(req.reasonText())));
         return toView(claim, order.getOrderNo());
@@ -106,6 +116,11 @@ public class ClaimService {
         Order order = orderRepository.findById(claim.getOrderId())
                 .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
 
+        // 끝난 요청을 다시 처리하지 않는다 (재고 이중 복구·이중 환불 방지).
+        if (!claim.isOpen()) {
+            throw new IllegalArgumentException("이미 처리가 끝난 요청입니다.");
+        }
+
         Integer refund = req.refundAmount();
         // 결제액을 넘는 환불은 PG 가 거부한다. 우리 기록만 어긋나지 않게 미리 막는다.
         if (refund != null && (refund <= 0 || refund > order.getTotalAmount())) {
@@ -114,6 +129,10 @@ public class ClaimService {
         // 취소·반품을 완료 처리하면 재고를 되돌리고 주문·결제를 정리한다.
         if (target == OrderClaim.Status.COMPLETED
                 && (claim.getType().equals("CANCEL") || claim.getType().equals("RETURN"))) {
+            // 이미 취소·환불된 주문이면 재고를 또 돌려주지 않는다.
+            if (order.getStatus().equals("CANCELLED") || order.getStatus().equals("REFUNDED")) {
+                throw new IllegalArgumentException("이미 취소·환불이 끝난 주문입니다.");
+            }
             restock(order);
             String nextOrderStatus = claim.getType().equals("CANCEL") ? "CANCELLED" : "REFUNDED";
             order.applyStatus(nextOrderStatus);

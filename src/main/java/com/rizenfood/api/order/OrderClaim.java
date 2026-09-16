@@ -64,8 +64,19 @@ public class OrderClaim {
         this.reasonText = reasonText;
     }
 
-    /** 관리자가 처리한다. 처리 시각을 남긴다. */
+    /**
+     * 관리자가 처리한다. 처리 시각을 남긴다.
+     *
+     * ★ 끝난 요청(반려·완료)은 다시 처리하지 않는다. 완료를 두 번 누르면
+     *   재고가 두 번 돌아오고 환불도 두 번 시도되기 때문이다.
+     */
     public void process(Status status, String adminMemo, Integer refundAmount) {
+        if (!isOpen()) {
+            throw new IllegalStateException("이미 처리가 끝난 요청입니다.");
+        }
+        if (status == Status.REQUESTED) {
+            throw new IllegalArgumentException("처리 상태를 선택해 주세요.");
+        }
         this.status = status.name();
         this.adminMemo = adminMemo;
         this.refundAmount = refundAmount;
@@ -74,6 +85,11 @@ public class OrderClaim {
 
     public boolean isRequested() {
         return Status.REQUESTED.name().equals(status);
+    }
+
+    /** 아직 끝나지 않은 요청(접수·승인). 이런 요청이 있으면 같은 주문에 새 요청을 받지 않는다. */
+    public boolean isOpen() {
+        return Status.REQUESTED.name().equals(status) || Status.APPROVED.name().equals(status);
     }
 
     public Long getId() { return id; }

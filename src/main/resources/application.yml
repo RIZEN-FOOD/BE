@@ -107,7 +107,9 @@ app:
     type: ${STORAGE_TYPE:local}
     local:
       path: ${STORAGE_LOCAL_PATH:./uploads}
-      public-base-url: ${STORAGE_LOCAL_URL:http://localhost:8080/uploads}
+      # 도메인 없이 경로만 둔다. 화면이 같은 출처로 사진을 불러오므로
+      # 개발·운영에서 주소가 달라지지 않고, 보안 정책(CSP)도 좁게 유지된다.
+      public-base-url: ${STORAGE_LOCAL_URL:/uploads}
     s3:
       bucket: ${S3_BUCKET:}
       # 버킷 주소가 아니라 CDN 도메인을 쓴다 (R2 사용자 지정 도메인 또는 CloudFront).
