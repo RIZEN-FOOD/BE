@@ -6,6 +6,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -35,6 +37,7 @@ public class MemberAuthService {
     private final MemberRepository memberRepo;
     private final RefreshTokenRepository refreshRepo;
     private final MemberLoginAttemptService attemptService;
+    private final RefreshReuseGuard reuseGuard;
     private final PasswordEncoder passwordEncoder;
     private final PasswordPolicy passwordPolicy;
     private final PhoneCipher phoneCipher;
@@ -42,12 +45,14 @@ public class MemberAuthService {
     private final SecureRandom random = new SecureRandom();
 
     public MemberAuthService(MemberRepository memberRepo, RefreshTokenRepository refreshRepo,
-                             MemberLoginAttemptService attemptService, PasswordEncoder passwordEncoder,
+                             MemberLoginAttemptService attemptService, RefreshReuseGuard reuseGuard,
+                             PasswordEncoder passwordEncoder,
                              PasswordPolicy passwordPolicy, PhoneCipher phoneCipher,
                              JwtProperties jwtProperties) {
         this.memberRepo = memberRepo;
         this.refreshRepo = refreshRepo;
         this.attemptService = attemptService;
+        this.reuseGuard = reuseGuard;
         this.passwordEncoder = passwordEncoder;
         this.passwordPolicy = passwordPolicy;
         this.phoneCipher = phoneCipher;
@@ -150,8 +155,12 @@ public class MemberAuthService {
         if (!token.isUsable()) {
             // 이미 무효화된 토큰이 다시 오면 탈취로 본다. 그 회원의 토큰을 전부 끊어
             // 공격자가 앞서 회전시켜 둔 토큰도 함께 죽인다.
+            //
+            // ★ 반드시 별도 트랜잭션(REQUIRES_NEW)으로 끊는다. 같은 트랜잭션에서 지우면
+            //   바로 아래 예외가 그 무효화까지 되돌려, 막은 것처럼 보이지만 아무것도 안 막힌다.
+            //   (로그인 실패 기록을 MemberLoginAttemptService 로 떼어놓은 것과 같은 이유다.)
             if (token.isRevoked()) {
-                refreshRepo.revokeAllByMember(token.getMemberId(), Instant.now());
+                reuseGuard.revokeFamily(token.getMemberId());
             }
             throw new MemberAuthException("세션이 만료되었습니다. 다시 로그인해 주세요.");
         }
@@ -205,6 +214,30 @@ public class MemberAuthService {
     }
 
     public record RefreshResult(String newRefreshRaw, Long memberId) {
+    }
+
+    /**
+     * 토큰 재사용(탈취 의심)을 감지했을 때 그 회원의 리프레시 토큰을 전부 끊는다.
+     *
+     * 호출한 쪽은 곧바로 예외를 던져 요청을 거부한다. 그 예외가 이 무효화까지 되돌리지 않도록
+     * 별도 트랜잭션으로 떼어놓는다 — 같은 빈 안에서 부르면 프록시를 타지 않아 소용이 없다.
+     */
+    @Service
+    public static class RefreshReuseGuard {
+        private static final Logger log = LoggerFactory.getLogger(RefreshReuseGuard.class);
+
+        private final RefreshTokenRepository refreshRepo;
+
+        public RefreshReuseGuard(RefreshTokenRepository refreshRepo) {
+            this.refreshRepo = refreshRepo;
+        }
+
+        @Transactional(propagation = Propagation.REQUIRES_NEW)
+        public void revokeFamily(Long memberId) {
+            refreshRepo.revokeAllByMember(memberId, Instant.now());
+            // 회원 식별자만 남긴다(개인정보 없음). 같은 회원에서 반복되면 계정 탈취를 의심해야 한다.
+            log.warn("리프레시 토큰 재사용 감지: 회원 {} 의 세션을 모두 끊었다", memberId);
+        }
     }
 
     /**
