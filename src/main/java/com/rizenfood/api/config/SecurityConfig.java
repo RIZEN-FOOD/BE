@@ -62,6 +62,9 @@ public class SecurityConfig {
                         // 회원 가입·로그인·재발급·중복확인은 토큰 없이 호출된다
                         .requestMatchers("/api/auth/signup", "/api/auth/login",
                                 "/api/auth/refresh", "/api/auth/check-email").permitAll()
+                        // 간편 로그인(카카오·네이버). 시작·콜백·동의 마무리는 로그인 전에 불린다.
+                        // 콜백은 서명된 1회용 state 쿠키로, 마무리는 서명된 가입 쿠키로 검증한다.
+                        .requestMatchers("/api/auth/oauth/**").permitAll()
                         // 문의 접수는 비회원도 할 수 있다. 로그인 상태면 필터가 인증 정보를 심어주지만
                         // 이 경로 자체는 토큰이 없어도 통과해야 한다.
                         .requestMatchers("/api/inquiries").permitAll()

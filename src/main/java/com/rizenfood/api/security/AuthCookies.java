@@ -88,6 +88,49 @@ public class AuthCookies {
         return read(request, MEMBER_ACCESS);
     }
 
+    // ── 간편 로그인 쿠키 ──────────────────────────────────────
+    //
+    // 로그인 시작 → 콜백 → 동의 화면 사이에서만 쓰인다. 경로를 /api/auth/oauth 로 좁히고
+    // 10분이면 사라진다. SameSite=Lax 라 카카오·네이버에서 돌아오는 이동(GET)에는 실린다.
+
+    public static final String OAUTH_STATE = "rizen_oauth_state";
+    public static final String SOCIAL_SIGNUP = "rizen_social_signup";
+    private static final String OAUTH_PATH = "/api/auth/oauth";
+
+    public ResponseCookie oauthState(String token, long maxAgeSeconds) {
+        return shortLived(OAUTH_STATE, token, maxAgeSeconds);
+    }
+
+    public ResponseCookie expiredOauthState() {
+        return shortLived(OAUTH_STATE, "", 0);
+    }
+
+    public String readOauthState(HttpServletRequest request) {
+        return read(request, OAUTH_STATE);
+    }
+
+    public ResponseCookie socialSignup(String token, long maxAgeSeconds) {
+        return shortLived(SOCIAL_SIGNUP, token, maxAgeSeconds);
+    }
+
+    public ResponseCookie expiredSocialSignup() {
+        return shortLived(SOCIAL_SIGNUP, "", 0);
+    }
+
+    public String readSocialSignup(HttpServletRequest request) {
+        return read(request, SOCIAL_SIGNUP);
+    }
+
+    private ResponseCookie shortLived(String name, String value, long maxAgeSeconds) {
+        return ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(OAUTH_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
     // ── 게스트 장바구니 쿠키 ──────────────────────────────────
     //
     // 인증 토큰이 아니라 "이 브라우저의 장바구니는 이것" 이라는 식별자다.

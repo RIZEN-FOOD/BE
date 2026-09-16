@@ -16,6 +16,12 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
 
     boolean existsByEmailAndProvider(String email, String provider);
 
+    /** 간편 로그인 회원 찾기. 이메일은 바뀔 수 있어 제공자 고유번호로 찾는다. */
+    Optional<Member> findByProviderAndProviderId(String provider, String providerId);
+
+    /** 같은 이메일을 쓰는 계정들 (가입 경로가 달라도 모두). */
+    java.util.List<Member> findByEmail(String email);
+
     /**
      * 관리자 회원 검색.
      *

@@ -59,6 +59,18 @@ app:
       password: ${ADMIN_BOOTSTRAP_PASSWORD:}
       display-name: ${ADMIN_BOOTSTRAP_NAME:관리자}
 
+  oauth:
+    # 간편 로그인. 손님이 보는 사이트 주소(끝에 / 없이). 로그인 뒤 돌아올 주소를 여기서 만든다.
+    # 카카오·네이버 개발자 콘솔에 등록한 Redirect URI 와 같아야 한다 (deploy/SOCIAL_LOGIN.md).
+    redirect-base: ${OAUTH_REDIRECT_BASE:http://localhost:3200}
+    # 키가 비어 있으면 그 제공자는 꺼진다 (버튼도 안 보인다).
+    kakao:
+      client-id: ${KAKAO_CLIENT_ID:}
+      client-secret: ${KAKAO_CLIENT_SECRET:}
+    naver:
+      client-id: ${NAVER_CLIENT_ID:}
+      client-secret: ${NAVER_CLIENT_SECRET:}
+
   crypto:
     # 휴대폰 번호 암호화 키 (base64 32바이트). .env 로만 넣는다.
     phone-key: ${PHONE_ENC_KEY:}

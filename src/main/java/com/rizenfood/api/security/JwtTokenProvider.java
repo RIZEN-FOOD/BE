@@ -126,6 +126,85 @@ public class JwtTokenProvider {
         }
     }
 
+    // ── 간편 로그인 ─────────────────────────────────────────────
+    //
+    //  짧은 수명(10분) 값 두 가지를 서명해 HttpOnly 쿠키로 들고 다닌다. 서버에 세션을 두지 않기 위해서다.
+    //   - oauth-state    : 로그인 시작 → 콜백 사이. 위조 요청(CSRF)을 막는 1회용 값과 돌아갈 화면.
+    //   - social-signup  : 처음 온 손님이 동의 화면에서 가입을 마칠 때까지 제공자 정보를 들고 있는다.
+    //  audience 가 달라 회원·관리자 토큰으로 쓸 수 없고, 거꾸로도 안 된다.
+
+    private static final long SOCIAL_TTL_SECONDS = 600;
+
+    public String createOAuthState(String provider, String state, String next) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(provider)
+                .claim("st", state)
+                .claim("nx", next)
+                .audience().add("oauth-state").and()
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(SOCIAL_TTL_SECONDS)))
+                .signWith(key)
+                .compact();
+    }
+
+    public Optional<OAuthState> parseOAuthState(String token) {
+        return parseWithAudience(token, "oauth-state").map(c -> new OAuthState(
+                c.getSubject(), c.get("st", String.class), c.get("nx", String.class)));
+    }
+
+    public String createSocialSignupTicket(String provider, String providerId, String email,
+                                           boolean emailVerified, String name, String next) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .subject(provider + ":" + providerId)
+                .claim("prv", provider)
+                .claim("pid", providerId)
+                .claim("em", email)
+                .claim("emv", emailVerified)
+                .claim("nm", name)
+                .claim("nx", next)
+                .audience().add("social-signup").and()
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(SOCIAL_TTL_SECONDS)))
+                .signWith(key)
+                .compact();
+    }
+
+    public Optional<SocialSignupTicket> parseSocialSignupTicket(String token) {
+        return parseWithAudience(token, "social-signup").map(c -> new SocialSignupTicket(
+                c.get("prv", String.class), c.get("pid", String.class), c.get("em", String.class),
+                Boolean.TRUE.equals(c.get("emv", Boolean.class)), c.get("nm", String.class),
+                c.get("nx", String.class)));
+    }
+
+    public long socialTicketSeconds() {
+        return SOCIAL_TTL_SECONDS;
+    }
+
+    private Optional<Claims> parseWithAudience(String token, String audience) {
+        if (token == null || token.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Jwts.parser()
+                    .verifyWith(key)
+                    .requireAudience(audience)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload());
+        } catch (JwtException | IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    public record OAuthState(String provider, String state, String next) {
+    }
+
+    public record SocialSignupTicket(String provider, String providerId, String email,
+                                     boolean emailVerified, String name, String next) {
+    }
+
     public long memberAccessSeconds() {
         return properties.memberAccessMinutes() * 60;
     }

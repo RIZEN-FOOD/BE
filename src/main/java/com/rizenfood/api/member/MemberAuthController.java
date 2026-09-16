@@ -37,13 +37,16 @@ public class MemberAuthController {
     private final JwtTokenProvider tokenProvider;
     private final AuthCookies cookies;
     private final ClientIpResolver ipResolver;
+    private final MemberSessionIssuer sessionIssuer;
 
     public MemberAuthController(MemberAuthService service, JwtTokenProvider tokenProvider,
-                                AuthCookies cookies, ClientIpResolver ipResolver) {
+                                AuthCookies cookies, ClientIpResolver ipResolver,
+                                MemberSessionIssuer sessionIssuer) {
         this.service = service;
         this.tokenProvider = tokenProvider;
         this.cookies = cookies;
         this.ipResolver = ipResolver;
+        this.sessionIssuer = sessionIssuer;
     }
 
     /** 이메일 사용 가능 여부 (회원가입 중복확인) */
@@ -103,8 +106,9 @@ public class MemberAuthController {
     @PreAuthorize("hasRole('MEMBER')")
     public MemberDtos.MemberResponse me(@AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me) {
         Member member = service.get(me.id());
+        // 자리 표시 주소(간편 로그인에서 이메일을 못 받은 경우)는 화면에 내보내지 않는다.
         return new MemberDtos.MemberResponse(
-                member.getId(), member.getEmail(), member.getName(), member.getProvider());
+                member.getId(), member.contactEmail(), member.getName(), member.getProvider());
     }
 
     /** 회원 탈퇴 */
@@ -120,16 +124,11 @@ public class MemberAuthController {
 
     private ResponseEntity<MemberDtos.MemberResponse> issueSession(
             Member member, HttpServletRequest http, int status) {
-        String access = tokenProvider.createMemberAccessToken(member.getId(), member.getName());
-        String refresh = service.issueRefreshToken(member.getId(), http.getHeader("User-Agent"), clientIp(http));
-
         return ResponseEntity.status(status)
                 .header(HttpHeaders.SET_COOKIE,
-                        cookies.memberAccess(access, tokenProvider.memberAccessSeconds()).toString())
-                .header(HttpHeaders.SET_COOKIE,
-                        cookies.memberRefresh(refresh, tokenProvider.memberRefreshSeconds()).toString())
+                        sessionIssuer.sessionCookies(member, http).toArray(String[]::new))
                 .body(new MemberDtos.MemberResponse(
-                        member.getId(), member.getEmail(), member.getName(), member.getProvider()));
+                        member.getId(), member.contactEmail(), member.getName(), member.getProvider()));
     }
 
     private ResponseEntity.BodyBuilder clearSession() {

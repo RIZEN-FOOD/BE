@@ -102,6 +102,36 @@ public class Member {
         return m;
     }
 
+    /**
+     * 간편 로그인(카카오·네이버) 회원.
+     *
+     * 비밀번호가 없다. 이메일은 제공자가 확인해 준 경우에만 실제 주소가 들어가고,
+     * 없으면 연락용이 아닌 자리 표시 주소(…@social.invalid)를 넣는다 — email 칸이 필수이기 때문이다.
+     */
+    public static Member socialMember(String provider, String providerId, String email, String name) {
+        Member m = new Member();
+        m.email = email;
+        m.passwordHash = null;
+        m.name = name;
+        m.provider = provider;
+        m.providerId = providerId;
+        m.status = "ACTIVE";
+        return m;
+    }
+
+    /** 자리 표시 주소를 만든다. 실제로 메일이 가지 않는 도메인(.invalid)이다. */
+    public static String placeholderEmail(String provider, String providerId) {
+        return (provider + "_" + providerId + "@social.invalid").toLowerCase();
+    }
+
+    /** 연락에 쓸 수 있는 실제 이메일. 자리 표시 주소·탈퇴 처리된 주소면 null. */
+    public String contactEmail() {
+        if (email == null || email.endsWith(".invalid")) {
+            return null;
+        }
+        return email;
+    }
+
     public boolean isLocked() {
         return lockedUntil != null && lockedUntil.isAfter(Instant.now());
     }
@@ -188,6 +218,8 @@ public class Member {
         // 이메일은 재가입 판별을 위해 해시성 값으로 대체하지 않고, 여기서는 마스킹한다.
         this.passwordHash = null;
         this.phoneEncrypted = null;
+        // 간편 로그인 연결도 끊는다. 남겨두면 같은 카카오·네이버 계정으로 다시 가입할 수 없다.
+        this.providerId = null;
         this.name = "탈퇴한 회원";
         this.email = "withdrawn+" + this.id + "@rizen.invalid";
         this.updatedAt = Instant.now();
@@ -199,6 +231,7 @@ public class Member {
     public String getName() { return name; }
     public String getPhoneEncrypted() { return phoneEncrypted; }
     public String getProvider() { return provider; }
+    public String getProviderId() { return providerId; }
     public String getStatus() { return status; }
     public int getFailedCount() { return failedCount; }
     public Instant getTermsAgreedAt() { return termsAgreedAt; }
