@@ -107,6 +107,10 @@ public class ClaimService {
                 .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
 
         Integer refund = req.refundAmount();
+        // 결제액을 넘는 환불은 PG 가 거부한다. 우리 기록만 어긋나지 않게 미리 막는다.
+        if (refund != null && (refund <= 0 || refund > order.getTotalAmount())) {
+            throw new IllegalArgumentException("환불 금액은 1원 이상, 결제 금액 이하여야 합니다.");
+        }
         // 취소·반품을 완료 처리하면 재고를 되돌리고 주문·결제를 정리한다.
         if (target == OrderClaim.Status.COMPLETED
                 && (claim.getType().equals("CANCEL") || claim.getType().equals("RETURN"))) {

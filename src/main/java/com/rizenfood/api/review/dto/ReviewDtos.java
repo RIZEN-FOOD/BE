@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public final class ReviewDtos {
@@ -43,8 +44,13 @@ public final class ReviewDtos {
             @Max(value = 5, message = "별점은 1~5 사이여야 합니다.") Integer rating,
             @NotBlank(message = "후기 내용을 입력해 주세요.")
             @Size(max = 2000, message = "후기는 2000자 이내로 입력해 주세요.") String content,
-            /** 업로드된 이미지 키 목록. 업로드는 별도 엔드포인트로 먼저 한다. */
-            List<String> imageKeys) {
+            /**
+             * 업로드된 이미지 키 목록. 업로드는 별도 엔드포인트로 먼저 한다.
+             * 우리 업로드 파이프라인이 만든 형식만 받는다 — 아무 문자열이나 넣어
+             * 엉뚱한 경로를 후기 사진으로 걸어두지 못하게 한다.
+             */
+            List<@Pattern(regexp = "^[a-z][a-z0-9-]{0,29}/[0-9]{4}/[0-9]{2}/[0-9a-f]{32}$",
+                    message = "사진 정보가 올바르지 않습니다. 사진을 다시 올려 주세요.") String> imageKeys) {
     }
 
     /** 관리자 목록 한 줄. 숨김 사유·회원 id 등 관리 정보를 더 담는다. */

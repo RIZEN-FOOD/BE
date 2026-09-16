@@ -3,6 +3,7 @@ package com.rizenfood.api.payment;
 import java.security.SecureRandom;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 /**
@@ -13,8 +14,13 @@ import org.springframework.stereotype.Component;
  *
  * app.payment.provider 가 mock 이거나 비어 있을 때 쓰인다(기본값).
  * 실제 결제는 PAYMENT_PROVIDER=portone 으로 바꾸면 PortOnePaymentGateway 가 대신한다.
+ *
+ * ★ 운영(prod)에서는 이 빈이 아예 만들어지지 않는다.
+ *   설정 한 줄이 비거나 오타 나도 "돈은 안 들어왔는데 결제 완료"가 되는 사고를 막기 위해서다.
+ *   운영에서 PG 설정이 잘못되면 결제가 조용히 통과하는 대신 서버가 뜨지 않는다.
  */
 @Component
+@Profile("!prod")
 @ConditionalOnProperty(name = "app.payment.provider", havingValue = "mock", matchIfMissing = true)
 public class MockPaymentGateway implements PaymentGateway {
 

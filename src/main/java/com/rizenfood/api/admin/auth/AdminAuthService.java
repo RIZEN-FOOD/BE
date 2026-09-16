@@ -52,8 +52,9 @@ public class AdminAuthService {
             throw new AdminLoginException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
+        // ★ 계정 존재 여부를 알려주지 않는다. 아이디가 맞는지 확인시켜 주면 그다음은 비밀번호만 남는다.
         if (!admin.isEnabled()) {
-            throw new AdminLoginException("사용할 수 없는 계정입니다. 관리자에게 문의해 주세요.");
+            throw new AdminLoginException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
         if (admin.isLocked()) {
@@ -68,9 +69,7 @@ public class AdminAuthService {
                 throw new AdminLoginException(
                         "로그인 시도가 너무 많습니다. " + AdminUser.LOCK_MINUTES + "분 후에 다시 시도해 주세요.");
             }
-            throw new AdminLoginException(
-                    "아이디 또는 비밀번호가 올바르지 않습니다. "
-                            + result.attemptsLeft() + "회 더 틀리면 계정이 잠깁니다.");
+            throw new AdminLoginException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
         attemptService.recordSuccess(admin.getId());

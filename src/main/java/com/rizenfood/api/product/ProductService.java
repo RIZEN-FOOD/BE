@@ -70,7 +70,7 @@ public class ProductService {
                 .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
         p.setHeroHeadline(blankToNull(r.heroHeadline()));
         p.setHeroSubcopy(blankToNull(r.heroSubcopy()));
-        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroColor(hexColor(r.heroColor()));
         p.setHeroImageKey(blankToNull(r.heroImageKey()));
         p.setHeroBackdropKey(blankToNull(r.heroBackdropKey()));
         p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
@@ -170,6 +170,21 @@ public class ProductService {
         return (s == null || s.isBlank()) ? null : s.trim();
     }
 
+    /**
+     * 히어로 배경색. #RRGGBB 형식만 받는다.
+     * 화면이 이 값으로 그라데이션을 만들기 때문에, 형식이 아니면 색이 깨진 채로 나간다.
+     */
+    private static String hexColor(String s) {
+        String v = blankToNull(s);
+        if (v == null) {
+            return null;
+        }
+        if (!v.matches("^#[0-9a-fA-F]{6}$")) {
+            throw new IllegalArgumentException("배경색은 #RRGGBB 형식으로 넣어주세요. 예: #F2E8DC");
+        }
+        return v;
+    }
+
     private void apply(Product p, ProductDtos.SaveRequest r) {
         if (r.discountPrice() != null && r.discountPrice() > r.price()) {
             throw new IllegalArgumentException("할인가가 정가보다 클 수 없습니다.");
@@ -188,7 +203,7 @@ public class ProductService {
         p.setServings(r.servings());
         p.setStock(r.stock() == null ? 0 : r.stock());
         p.setThumbnailKey(r.thumbnailKey());
-        p.setHeroColor(r.heroColor() == null || r.heroColor().isBlank() ? null : r.heroColor().trim());
+        p.setHeroColor(hexColor(r.heroColor()));
         p.setHeroImageKey(blankToNull(r.heroImageKey()));
         p.setHeroAccent1Key(blankToNull(r.heroAccent1Key()));
         p.setHeroAccent2Key(blankToNull(r.heroAccent2Key()));

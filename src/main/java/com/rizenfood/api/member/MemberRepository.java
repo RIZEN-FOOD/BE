@@ -5,6 +5,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,4 +36,13 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Page<Member> searchForAdmin(@Param("q") String q,
                                 @Param("status") String status,
                                 Pageable pageable);
+
+    /**
+     * 탈퇴 후 보존기간이 지난 회원 완전 삭제 (개인정보 보호법상 파기 의무).
+     * 탈퇴 시점에 이미 이름·이메일·연락처는 지웠고, 여기서 남은 행을 없앤다.
+     * 주문 기록은 회원 행과 분리돼 있어 상거래 기록(5년 보존)은 그대로 남는다.
+     */
+    @Modifying
+    @Query("delete from Member m where m.status = 'WITHDRAWN' and m.purgeAt is not null and m.purgeAt < :now")
+    int purgeWithdrawn(@Param("now") java.time.Instant now);
 }

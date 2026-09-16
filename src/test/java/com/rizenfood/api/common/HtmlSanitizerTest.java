@@ -81,4 +81,15 @@ class HtmlSanitizerTest {
         assertThat(sanitizer.clean(null)).isNull();
         assertThat(sanitizer.clean("   ")).isEmpty();
     }
+
+    @Test
+    @DisplayName("새 창으로 열리는 링크에는 속성 순서와 관계없이 rel 이 붙는다")
+    void relOnEveryLink() {
+        // href 가 첫 속성이 아닌 경우. 예전 문자열 치환 방식은 여기서 rel 을 놓쳤다
+        // → target=_blank 만 남아 원본 탭을 바꿔치기할 수 있었다(reverse tabnabbing).
+        String out = sanitizer.clean("<a title=\"x\" href=\"https://evil.example\" target=\"_blank\">클릭</a>");
+
+        assertThat(out).contains("rel=\"noopener noreferrer\"");
+        assertThat(out).contains("https://evil.example");
+    }
 }

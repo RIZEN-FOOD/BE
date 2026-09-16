@@ -13,10 +13,24 @@ www.{$DOMAIN} {
 	encode zstd gzip
 
 	header {
-		Strict-Transport-Security "max-age=31536000"
+		# 1년간 HTTPS 로만 접속. 서브도메인까지, 브라우저 기본 목록 등재 신청 가능하게.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# 남의 사이트에 우리 화면을 끼워 넣지 못하게 (클릭재킹).
+		X-Frame-Options "SAMEORIGIN"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		# 서버 종류·버전을 알려줄 이유가 없다.
 		-Server
+		-X-Powered-By
+	}
+
+	# 업로드된 파일은 사진뿐이다. 혹시 스크립트가 섞여 들어와도 브라우저가 실행하지 못하게
+	# 아주 좁은 정책을 따로 씌운다 (저장형 XSS 2차 방어).
+	@uploads path /uploads/*
+	header @uploads {
+		Content-Security-Policy "default-src 'none'; img-src 'self'; sandbox"
+		Cross-Origin-Resource-Policy "same-site"
 	}
 
 	# API·업로드 사진은 화면 서버를 거치지 않고 API 로 곧장 보낸다.

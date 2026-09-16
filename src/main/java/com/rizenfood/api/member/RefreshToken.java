@@ -61,6 +61,11 @@ public class RefreshToken {
         return revokedAt == null && expiresAt.isAfter(Instant.now());
     }
 
+    /** 이미 무효화된 토큰인지. 재사용이 들어오면 탈취로 본다. */
+    public boolean isRevoked() {
+        return revokedAt != null;
+    }
+
     public void revoke() {
         this.revokedAt = Instant.now();
     }

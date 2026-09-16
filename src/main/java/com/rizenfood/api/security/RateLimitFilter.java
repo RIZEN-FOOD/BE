@@ -54,7 +54,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Rule("admin-login", "POST", "/api/admin/auth/login", 10, Duration.ofMinutes(1)),
             new Rule("member-login", "POST", "/api/auth/login", 10, Duration.ofMinutes(1)),
             new Rule("signup", "POST", "/api/auth/signup", 5, Duration.ofMinutes(10)),
-            new Rule("check-email", "POST", "/api/auth/check-email", 20, Duration.ofMinutes(1)),
+            new Rule("check-email", "POST", "/api/auth/check-email", 5, Duration.ofMinutes(1)),
             new Rule("refresh", "POST", "/api/auth/refresh", 30, Duration.ofMinutes(1)),
             new Rule("order-create", "POST", "/api/orders", 10, Duration.ofMinutes(1)),
             new Rule("order-lookup", "GET", "/api/orders/*", 60, Duration.ofMinutes(1)),
@@ -64,7 +64,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Rule("inquiry", "POST", "/api/inquiries", 5, Duration.ofMinutes(10)),
             new Rule("review", "POST", "/api/member/reviews", 10, Duration.ofMinutes(10)),
             new Rule("review-image", "POST", "/api/member/reviews/images", 20, Duration.ofMinutes(10)),
-            new Rule("cart-add", "POST", "/api/cart/items", 60, Duration.ofMinutes(1)));
+            new Rule("cart-add", "POST", "/api/cart/items", 60, Duration.ofMinutes(1)),
+            // 쿠키 없이 GET 하면 게스트 장바구니가 한 줄씩 생긴다. 반복 호출로 DB 를 불리지 못하게 막는다.
+            new Rule("cart-view", "GET", "/api/cart", 60, Duration.ofMinutes(1)));
 
     private static final long LONGEST_WINDOW_MS = RULES.stream()
             .mapToLong(r -> r.window().toMillis()).max().orElse(0);

@@ -60,7 +60,11 @@ public class HtmlSanitizer {
         String cleaned = Jsoup.clean(dirty, "", safelist,
                 new Document.OutputSettings().prettyPrint(false));
 
-        // 외부로 나가는 링크에는 rel 을 붙여 원본 탭 탈취를 막는다.
-        return cleaned.replace("<a href=\"http", "<a rel=\"noopener noreferrer\" href=\"http");
+        // 외부로 나가는 링크에는 rel 을 붙여 원본 탭 탈취(reverse tabnabbing)를 막는다.
+        // 문자열 치환은 href 가 첫 속성일 때만 맞는다 — 순서와 무관하게 붙도록 DOM 으로 처리한다.
+        Document doc = Jsoup.parseBodyFragment(cleaned);
+        doc.outputSettings().prettyPrint(false);
+        doc.select("a[href]").attr("rel", "noopener noreferrer");
+        return doc.body().html();
     }
 }

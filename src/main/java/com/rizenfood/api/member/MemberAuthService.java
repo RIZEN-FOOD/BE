@@ -95,13 +95,13 @@ public class MemberAuthService {
             passwordEncoder.matches(rawPassword, DUMMY_HASH);
             throw new MemberAuthException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
-        if (member.isWithdrawn()) {
-            throw new MemberAuthException("탈퇴한 계정입니다.");
-        }
-        if (member.isSuspended()) {
-            throw new MemberAuthException("이용이 정지된 계정입니다. 고객센터로 문의해 주세요.");
+        // ★ 실패 사유를 구분해 알려주지 않는다. "탈퇴한 계정입니다" 같은 답은
+        //   그 이메일이 우리 회원이라는 사실을 알려주는 조회 창구가 된다(계정 존재 확인).
+        if (member.isWithdrawn() || member.isSuspended()) {
+            throw new MemberAuthException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
         if (member.isLocked()) {
+            // 잠김만은 알려준다. 알려주지 않으면 비밀번호가 맞는데도 계속 실패해 문의가 몰린다.
             throw new MemberAuthException(
                     "로그인 시도가 너무 많습니다. " + member.lockRemainingMinutes() + "분 후에 다시 시도해 주세요.");
         }
@@ -112,8 +112,8 @@ public class MemberAuthService {
                 throw new MemberAuthException(
                         "로그인 시도가 너무 많습니다. " + Member.LOCK_MINUTES + "분 후에 다시 시도해 주세요.");
             }
-            throw new MemberAuthException(
-                    "이메일 또는 비밀번호가 올바르지 않습니다. " + result.attemptsLeft() + "회 더 틀리면 잠깁니다.");
+            // 남은 횟수를 알려주지 않는다 — 계정이 있다는 뜻이 되기 때문이다.
+            throw new MemberAuthException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
         attemptService.recordSuccess(member.getId());
@@ -148,6 +148,11 @@ public class MemberAuthService {
                 .orElseThrow(() -> new MemberAuthException("로그인이 필요합니다."));
 
         if (!token.isUsable()) {
+            // 이미 무효화된 토큰이 다시 오면 탈취로 본다. 그 회원의 토큰을 전부 끊어
+            // 공격자가 앞서 회전시켜 둔 토큰도 함께 죽인다.
+            if (token.isRevoked()) {
+                refreshRepo.revokeAllByMember(token.getMemberId(), Instant.now());
+            }
             throw new MemberAuthException("세션이 만료되었습니다. 다시 로그인해 주세요.");
         }
 
