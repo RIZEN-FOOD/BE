@@ -28,10 +28,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final AuthCookies cookies;
+    private final com.rizenfood.api.admin.AdminSessionGuard adminSessions;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, AuthCookies cookies) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, AuthCookies cookies,
+                                   com.rizenfood.api.admin.AdminSessionGuard adminSessions) {
         this.tokenProvider = tokenProvider;
         this.cookies = cookies;
+        this.adminSessions = adminSessions;
     }
 
     @Override
@@ -41,7 +44,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
             // 관리자 토큰을 먼저 본다. 있으면 관리자로 인증한다.
-            var admin = tokenProvider.parseAdminToken(cookies.readAdminToken(request));
+            // 서명이 맞아도, 비밀번호 변경·계정 중지·로그아웃으로 끊긴 토큰이면 인증하지 않는다.
+            var admin = tokenProvider.parseAdminToken(cookies.readAdminToken(request))
+                    .filter(adminSessions::isCurrent);
             if (admin.isPresent()) {
                 var authority = new SimpleGrantedAuthority("ROLE_" + admin.get().role());
                 var authentication = new UsernamePasswordAuthenticationToken(

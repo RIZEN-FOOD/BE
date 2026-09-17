@@ -52,6 +52,10 @@ public class AdminUser {
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
 
+    /** 세션 번호. 올리면 그전에 발급된 로그인 토큰이 모두 무효가 된다. */
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -137,5 +141,54 @@ public class AdminUser {
 
     public Instant getLastLoginAt() {
         return lastLoginAt;
+    }
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    // ── 계정 관리 ─────────────────────────────────────────────
+
+    /** 이 계정의 모든 로그인을 끊는다 (다른 기기 포함). */
+    public void revokeSessions() {
+        this.tokenVersion += 1;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 비밀번호를 바꾼다. 기존 로그인은 모두 끊고, 잠금도 푼다. */
+    public void changePassword(String newHash) {
+        this.passwordHash = newHash;
+        this.failedCount = 0;
+        this.lockedUntil = null;
+        revokeSessions();
+    }
+
+    public void rename(String displayName) {
+        this.displayName = displayName;
+        this.updatedAt = Instant.now();
+    }
+
+    /** 권한이 바뀌면 이전 권한으로 발급된 토큰을 끊는다. */
+    public void changeRole(String role) {
+        if (!role.equals(this.role)) {
+            this.role = role;
+            revokeSessions();
+        }
+    }
+
+    /** 사용 중지하면 즉시 로그아웃된다. */
+    public void setEnabled(boolean enabled) {
+        if (this.enabled != enabled) {
+            this.enabled = enabled;
+            revokeSessions();
+        }
+    }
+
+    public boolean isSuperAdmin() {
+        return "SUPER_ADMIN".equals(role);
     }
 }

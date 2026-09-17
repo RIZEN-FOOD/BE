@@ -52,6 +52,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     static final List<Rule> RULES = List.of(
             new Rule("admin-login", "POST", "/api/admin/auth/login", 10, Duration.ofMinutes(1)),
+            // 비밀번호 변경은 현재 비밀번호를 확인하므로 추측 공격 통로가 될 수 있다.
+            new Rule("admin-password", "PATCH", "/api/admin/auth/password", 10, Duration.ofMinutes(10)),
+            new Rule("admin-password-reset", "PUT", "/api/admin/accounts/*/password", 20, Duration.ofMinutes(10)),
             new Rule("member-login", "POST", "/api/auth/login", 10, Duration.ofMinutes(1)),
             new Rule("signup", "POST", "/api/auth/signup", 5, Duration.ofMinutes(10)),
             new Rule("check-email", "POST", "/api/auth/check-email", 5, Duration.ofMinutes(1)),

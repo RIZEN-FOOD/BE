@@ -8,11 +8,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.rizenfood.api.admin.AdminAccountService;
 import com.rizenfood.api.admin.AdminUser;
 import com.rizenfood.api.audit.AuditService;
 import com.rizenfood.api.security.AuthCookies;
@@ -36,13 +38,16 @@ public class AdminAuthController {
     private final JwtTokenProvider tokenProvider;
     private final AuthCookies cookies;
     private final AuditService auditService;
+    private final AdminAccountService accountService;
 
     public AdminAuthController(AdminAuthService authService, JwtTokenProvider tokenProvider,
-                               AuthCookies cookies, AuditService auditService) {
+                               AuthCookies cookies, AuditService auditService,
+                               AdminAccountService accountService) {
         this.authService = authService;
         this.tokenProvider = tokenProvider;
         this.cookies = cookies;
         this.auditService = auditService;
+        this.accountService = accountService;
     }
 
     public record LoginRequest(
@@ -56,7 +61,8 @@ public class AdminAuthController {
         AdminUser admin = authService.authenticate(request.username(), request.password());
 
         String token = tokenProvider.createAdminToken(
-                admin.getId(), admin.getUsername(), admin.getDisplayName(), admin.getRole());
+                admin.getId(), admin.getUsername(), admin.getDisplayName(), admin.getRole(),
+                admin.getTokenVersion());
         ResponseCookie cookie = cookies.adminToken(token, tokenProvider.adminExpirySeconds());
 
         auditService.record(admin.getId(), admin.getDisplayName(), "LOGIN",
@@ -69,11 +75,46 @@ public class AdminAuthController {
                         "role", admin.getRole()));
     }
 
+    /**
+     * 로그아웃. 쿠키만 지우는 게 아니라 이 계정의 세션 번호를 올려,
+     * 그전에 복사·탈취된 토큰도 함께 무효로 만든다 (다른 기기도 로그아웃된다).
+     */
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
+    public ResponseEntity<Map<String, String>> logout(HttpServletRequest httpRequest) {
+        tokenProvider.parseAdminToken(cookies.readAdminToken(httpRequest))
+                .ifPresent(admin -> accountService.logout(admin.id()));
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookies.expiredAdminToken().toString())
                 .body(Map.of("message", "로그아웃되었습니다."));
+    }
+
+    public record PasswordChangeRequest(
+            @NotBlank(message = "현재 비밀번호를 입력해 주세요.") String currentPassword,
+            @NotBlank(message = "새 비밀번호를 입력해 주세요.") String newPassword) {
+    }
+
+    /**
+     * 내 비밀번호 변경. 현재 비밀번호를 확인한다.
+     * 바꾸면 다른 기기의 로그인은 모두 끊기고, 지금 이 화면은 새 토큰으로 계속 쓴다.
+     */
+    @PatchMapping("/password")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPER_ADMIN')")
+    public ResponseEntity<Map<String, String>> changePassword(
+            @Valid @RequestBody PasswordChangeRequest request,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedAdmin me,
+            HttpServletRequest httpRequest) {
+        AdminUser admin = accountService.changeOwnPassword(me.id(), request.currentPassword(), request.newPassword());
+
+        String token = tokenProvider.createAdminToken(
+                admin.getId(), admin.getUsername(), admin.getDisplayName(), admin.getRole(),
+                admin.getTokenVersion());
+        auditService.record(admin.getId(), admin.getDisplayName(), "PASSWORD_CHANGE",
+                "ADMIN_USER", String.valueOf(admin.getId()), null, httpRequest);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE,
+                        cookies.adminToken(token, tokenProvider.adminExpirySeconds()).toString())
+                .body(Map.of("message", "비밀번호를 바꿨습니다. 다른 기기의 로그인은 모두 끊겼습니다."));
     }
 
     /** 새로고침 시 로그인 상태를 확인하는 용도 */
@@ -82,6 +123,7 @@ public class AdminAuthController {
     public ResponseEntity<Map<String, Object>> me(
             @AuthenticationPrincipal JwtTokenProvider.AuthenticatedAdmin admin) {
         return ResponseEntity.ok(Map.of(
+                "id", admin.id(),
                 "displayName", admin.displayName(),
                 "role", admin.role()));
     }

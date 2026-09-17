@@ -9,4 +9,7 @@ public interface AdminUserRepository extends JpaRepository<AdminUser, Long> {
     Optional<AdminUser> findByUsername(String username);
 
     boolean existsByUsername(String username);
+
+    /** 사용 중인 계정 수 (마지막 최고관리자 보호용). */
+    long countByRoleAndEnabledTrue(String role);
 }

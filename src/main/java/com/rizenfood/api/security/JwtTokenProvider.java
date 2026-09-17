@@ -25,6 +25,8 @@ public class JwtTokenProvider {
 
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_NAME = "name";
+    /** 관리자 세션 번호. DB 의 admin_user.token_version 과 같아야 유효하다. */
+    private static final String CLAIM_TOKEN_VERSION = "tv";
 
     private final SecretKey key;
     private final JwtProperties properties;
@@ -44,7 +46,8 @@ public class JwtTokenProvider {
         this.key = Keys.hmacShaKeyFor(secret);
     }
 
-    public String createAdminToken(Long adminId, String username, String displayName, String role) {
+    public String createAdminToken(Long adminId, String username, String displayName, String role,
+                                   int tokenVersion) {
         Instant now = Instant.now();
         Instant expiry = now.plusSeconds(properties.adminExpiryMinutes() * 60);
 
@@ -52,6 +55,7 @@ public class JwtTokenProvider {
                 .subject(String.valueOf(adminId))
                 .claim(CLAIM_ROLE, role)
                 .claim(CLAIM_NAME, displayName)
+                .claim(CLAIM_TOKEN_VERSION, tokenVersion)
                 .audience().add("admin").and()
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(expiry))
@@ -76,10 +80,12 @@ public class JwtTokenProvider {
                     .parseSignedClaims(token)
                     .getPayload();
 
+            Integer tokenVersion = claims.get(CLAIM_TOKEN_VERSION, Integer.class);
             return Optional.of(new AuthenticatedAdmin(
                     Long.valueOf(claims.getSubject()),
                     claims.get(CLAIM_NAME, String.class),
-                    claims.get(CLAIM_ROLE, String.class)));
+                    claims.get(CLAIM_ROLE, String.class),
+                    tokenVersion == null ? -1 : tokenVersion));
         } catch (JwtException | IllegalArgumentException e) {
             // 위조·만료·형식 오류. 어느 쪽이든 인증 실패로 같게 다룬다.
             return Optional.empty();
@@ -214,7 +220,7 @@ public class JwtTokenProvider {
     }
 
     /** 토큰에서 꺼낸 관리자 정보 */
-    public record AuthenticatedAdmin(Long id, String displayName, String role) {
+    public record AuthenticatedAdmin(Long id, String displayName, String role, int tokenVersion) {
     }
 
     /** 토큰에서 꺼낸 회원 정보 */
