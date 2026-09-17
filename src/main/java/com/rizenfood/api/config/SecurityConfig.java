@@ -87,7 +87,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/notices/**",
                                 "/api/banners/**", "/api/reviews/**", "/api/settings/**",
                                 "/api/shipping-policy", "/api/shipping-policy/island",
-                                "/api/main-features")
+                                "/api/main-features", "/api/popups")
                         .permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(e -> e.authenticationEntryPoint(authEntryPoint))

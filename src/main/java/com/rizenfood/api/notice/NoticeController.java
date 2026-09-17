@@ -1,5 +1,6 @@
 package com.rizenfood.api.notice;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.data.domain.Page;
@@ -42,6 +43,15 @@ public class NoticeController {
                 "page", result.getNumber(),
                 "totalPages", result.getTotalPages(),
                 "totalCount", result.getTotalElements());
+    }
+
+    /**
+     * 메인 화면 공지 아코디언용 최신 공지(본문 포함).
+     * 목록에서 펼쳐 보는 것이라 조회수는 올리지 않는다.
+     */
+    @GetMapping("/latest")
+    public List<NoticeDtos.PublicDetail> latest(@RequestParam(defaultValue = "3") int size) {
+        return service.latestWithBody(Math.min(Math.max(1, size), 10));
     }
 
     @GetMapping("/{id}")

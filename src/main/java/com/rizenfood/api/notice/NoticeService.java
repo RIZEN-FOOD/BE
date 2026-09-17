@@ -1,8 +1,10 @@
 package com.rizenfood.api.notice;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +39,16 @@ public class NoticeService {
                 ? repository.findPublic(now, pageable)
                 : repository.searchPublic(now, keyword.trim(), pageable);
         return page.map(this::toPublicListItem);
+    }
+
+    /** 최신 공개 공지(고정 글 먼저) 본문 포함. 조회수는 그대로 둔다. */
+    @Transactional(readOnly = true)
+    public List<NoticeDtos.PublicDetail> latestWithBody(int size) {
+        return repository.findPublic(Instant.now(), PageRequest.of(0, size)).getContent().stream()
+                .map(n -> new NoticeDtos.PublicDetail(
+                        n.getId(), n.getCategory(), n.getTitle(), n.getBodyHtml(),
+                        n.getViewCount(), n.getPublishedAt()))
+                .toList();
     }
 
     /**
