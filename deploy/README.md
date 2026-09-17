@@ -66,8 +66,8 @@
 ## 4. 배포
 
     sudo mkdir -p /opt/rizen && sudo chown deploy /opt/rizen && cd /opt/rizen
-    # deploy/docker-compose.prod.yml, deploy/Caddyfile, deploy/backup.sh, deploy/.env.example 을 이 폴더로 복사
-    cp .env.example .env && chmod 600 .env     # 값 채우기 (DB_PASSWORD·BACKUP_PASSPHRASE 는 길고 무작위로)
+    # deploy/docker-compose.prod.yml, deploy/Caddyfile, deploy/backup.sh, deploy/make-env.sh 를 이 폴더로 복사
+    bash make-env.sh     # 운영 .env 생성 — 무작위 값은 자동, 도메인·키만 묻는다. 끝에 첫 관리자 비밀번호·백업 암호가 한 번 나온다
 
     # GitHub Actions 에서 BE "Build API image", FE "Build web image" 를 먼저 실행해 이미지를 만든다
     echo <read:packages 토큰> | docker login ghcr.io -u <GitHub 아이디> --password-stdin
@@ -76,7 +76,8 @@
     docker compose -f docker-compose.prod.yml logs -f caddy api    # 인증서 발급, "Started ApiApplication" 확인
 
 - DB 는 첫 기동 때 비어 있고, API 가 뜨면서 Flyway 가 테이블을 만든다.
-- 첫 기동 후: 관리자 로그인 확인 → `.env` 에서 `ADMIN_BOOTSTRAP_*` 두 줄 삭제 → `up -d` 로 재시작.
+- 첫 기동 후: 관리자 로그인 → **관리자 관리**에서 비밀번호 변경 → `.env` 에서 `ADMIN_BOOTSTRAP_*` 두 줄 삭제 → `up -d` 로 재시작.
+- 포트원 키가 아직 없으면 사이트는 정상으로 뜨고 결제만 "결제 준비 중"으로 막힌다. 키가 나오면 `.env` 에 넣고 `up -d`.
 - 업데이트: Actions 에서 이미지 빌드 → 서버에서 `pull` → `up -d` (처리 중 요청은 마치고 내려간다).
 
 ## 5. 백업

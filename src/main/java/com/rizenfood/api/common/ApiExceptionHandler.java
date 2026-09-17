@@ -50,6 +50,14 @@ public class ApiExceptionHandler {
                 .body(Map.of("error", "OUT_OF_STOCK", "message", e.getMessage()));
     }
 
+    /** 결제를 받을 수 없는 상태 (PG 키 미설정 등). 결제 성공으로 넘기지 않고 명확히 거절한다. */
+    @ExceptionHandler(com.rizenfood.api.payment.PaymentUnavailableException.class)
+    public ResponseEntity<Map<String, String>> handlePaymentUnavailable(
+            com.rizenfood.api.payment.PaymentUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(Map.of("error", "PAYMENT_UNAVAILABLE", "message", e.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest()

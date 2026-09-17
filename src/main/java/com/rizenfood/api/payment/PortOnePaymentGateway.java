@@ -29,19 +29,40 @@ import com.fasterxml.jackson.databind.JsonNode;
 @ConditionalOnProperty(name = "app.payment.provider", havingValue = "portone")
 public class PortOnePaymentGateway implements PaymentGateway {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PortOnePaymentGateway.class);
+
+    /** 키가 없으면 null — 결제를 받지 않는 상태다. */
     private final RestClient client;
 
+    /**
+     * ★ 키가 없어도 서버는 뜬다. PG 계약 전에도 사이트(상품·회원·관리자)를 먼저 올릴 수 있게 하기 위해서다.
+     *   대신 결제·환불 요청은 전부 "결제 준비 중"으로 거절한다(fail closed).
+     *   모의 결제처럼 돈 없이 결제 완료가 되는 일은 없다 — 운영에서 모의 결제는 아예 로드되지 않는다.
+     *   결제수단별 채널 키도 비어 있으면 결제 화면이 결제 버튼을 막는다(PaymentConfigController).
+     */
     public PortOnePaymentGateway(@Value("${app.payment.portone.api-secret:}") String apiSecret,
                                  @Value("${app.payment.portone.api-base:https://api.portone.io}") String apiBase) {
         if (apiSecret == null || apiSecret.isBlank()) {
-            // 키 없이 뜨면 결제가 전부 실패한다. 조용히 넘어가지 않고 기동 단계에서 막는다.
-            throw new IllegalStateException(
-                    "PORTONE_API_SECRET 이 비어 있다. 포트원 결제를 쓰려면 .env 에 넣어야 한다.");
+            log.warn("PORTONE_API_SECRET 이 비어 있다 — 결제를 받지 않는 상태로 시작한다 (결제 요청은 모두 거절).");
+            this.client = null;
+            return;
         }
         this.client = RestClient.builder()
                 .baseUrl(apiBase)
                 .defaultHeader("Authorization", "PortOne " + apiSecret)
                 .build();
+    }
+
+    /** 결제를 받을 수 있는 상태인가 (키가 설정됨). */
+    public boolean configured() {
+        return client != null;
+    }
+
+    private RestClient client() {
+        if (client == null) {
+            throw new PaymentUnavailableException("결제 준비 중입니다. 잠시 후 다시 이용해 주세요.");
+        }
+        return client;
     }
 
     @Override
@@ -73,7 +94,7 @@ public class PortOnePaymentGateway implements PaymentGateway {
             body.put("amount", amount); // 없으면 전액 취소
         }
         try {
-            client.post().uri("/payments/{paymentId}/cancel", orderNo)
+            client().post().uri("/payments/{paymentId}/cancel", orderNo)
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
@@ -85,7 +106,7 @@ public class PortOnePaymentGateway implements PaymentGateway {
     /** 포트원 결제 단건 조회. paymentId 는 경로 변수로 넘겨 자동 인코딩된다. */
     private JsonNode fetch(String paymentId) {
         try {
-            JsonNode node = client.get().uri("/payments/{paymentId}", paymentId)
+            JsonNode node = client().get().uri("/payments/{paymentId}", paymentId)
                     .retrieve()
                     .body(JsonNode.class);
             if (node == null) {
