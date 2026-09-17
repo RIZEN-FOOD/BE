@@ -1,6 +1,6 @@
-# 운영 서버 셋업 — AWS Lightsail 2GB (서울)
+# 운영 서버 셋업 — AWS Lightsail 4GB (서울)
 
-구성 (2026-09-15 결정 — 하루 방문 100~200명 기준, 커지면 스냅샷으로 4GB 이상에 옮긴다)
+구성 (2026-09-15 결정, 2026-09-17 4GB 로 시작 — 커지면 스냅샷으로 8GB 이상에 옮긴다)
 
     손님 ─ https://www.도메인 ─> Lightsail 서버 한 대 (Docker)
                                   caddy  : HTTPS 자동 인증서 · 입구
@@ -13,7 +13,7 @@
 
 도메인 DNS 는 가비아에서 바로 서버 고정 IP 로 향한다 (Cloudflare 안 씀 — 한국 접속이 해외 거점으로 돌지 않게).
 
-월 비용: 서버 $12 + 스냅샷 약 $1 + 버킷 $1 + 부가세 ≈ $15 (약 2.2만원) + 가비아 도메인.
+월 비용: 서버 $24 + 스냅샷 약 $2 + 버킷 $1 + 부가세 ≈ $30 (약 4.2만원) + 가비아 도메인. 가입 크레딧($200)이 먼저 쓰인다.
 
 ---
 
@@ -21,7 +21,7 @@
 
 | 무엇 | 설정 |
 |---|---|
-| 인스턴스 | Seoul · Linux/Unix · **OS Only → Ubuntu 24.04 LTS** · Dual-stack · **$12 (2 GB, 2 vCPU, 60 GB)** · 이름 `rizen-web` |
+| 인스턴스 | Seoul · Linux/Unix · **OS Only → Ubuntu 24.04 LTS** · Dual-stack · **$24 (4 GB, 2 vCPU, 80 GB)** · 이름 `rizen-web` |
 | 고정 IP | Networking → Create static IP → `rizen-web` 에 연결 (연결돼 있으면 무료) |
 | 방화벽 (IPv4·IPv6 모두) | 인스턴스 → Networking: **HTTP 80, HTTPS 443 허용**, **SSH 22 는 개발자 IP 만** |
 | 자동 스냅샷 | 인스턴스 → Snapshots → Automatic snapshots **On** (매일, 7개 보관) |
@@ -41,8 +41,8 @@
     # 보안 업데이트 자동 설치
     sudo apt install -y unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades
 
-    # 스왑 2GB — 2GB 서버에서 필수 (큰 사진 업로드 등 순간 메모리 튐 대비)
-    sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile
+    # 스왑 1GB — 큰 사진 업로드 등 순간 메모리 튐 대비
+    sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile
     sudo mkswap /swapfile && sudo swapon /swapfile
     echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
@@ -109,7 +109,7 @@
 - [ ] `FORCE_UPLOADS=1 backup.sh` → 버킷 파일 생성 → **복구 시험**(아래)
 - [ ] 자동 스냅샷 1개 이상 생성됐는지
 - [ ] 가동 감시(UptimeRobot 등): `https://www.도메인/api/products` — 멈추면 휴대폰 알림
-- [ ] `docker stats` 로 메모리 여유 확인 (지속적으로 80% 넘으면 4GB 로)
+- [ ] `docker stats` 로 메모리 여유 확인 (지속적으로 80% 넘으면 8GB 로)
 
 ## 8. 복구
 
@@ -127,6 +127,8 @@ DB
 - 실제 운영 DB 에 덮어쓰기 전에 **빈 DB(새 컨테이너)에 먼저 복구해 확인**한다.
 - 서버를 통째로 잃었으면: **Lightsail 스냅샷에서 새 인스턴스를 만드는 것**이 가장 빠르다(고정 IP 를 새 인스턴스로 옮김). 스냅샷이 없으면 1~4단계 → `stop api` → 위 복구 → `start api`.
 
-## 9. 사양 올리기 (2GB → 4GB)
+## 9. 사양 올리기 (4GB → 8GB)
 
-인스턴스 → Snapshots → 스냅샷 생성 → 그 스냅샷으로 **더 큰 요금제($24, 4GB)** 인스턴스 생성 → 고정 IP 를 새 인스턴스로 옮기기 → `docker-compose.prod.yml` 의 mem_limit 을 올리고 `up -d`. 주소·설정은 그대로다.
+★ 내리기는 어렵다 — 스냅샷은 더 작은 디스크 요금제로 옮길 수 없다.
+
+인스턴스 → Snapshots → 스냅샷 생성 → 그 스냅샷으로 **더 큰 요금제($44, 8GB)** 인스턴스 생성 → 고정 IP 를 새 인스턴스로 옮기기 → `docker-compose.prod.yml` 의 mem_limit 을 올리고 `up -d`. 주소·설정은 그대로다.

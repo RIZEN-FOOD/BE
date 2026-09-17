@@ -1,4 +1,4 @@
-# 운영 서버 (AWS Lightsail 2GB · 서울) 한 대에 전부 올리는 구성.
+# 운영 서버 (AWS Lightsail 4GB · 서울) 한 대에 전부 올리는 구성.
 #
 #   cd /opt/rizen && docker compose -f docker-compose.prod.yml up -d
 #
@@ -11,8 +11,8 @@
 #   Lightsail 방화벽: 80·443 허용, SSH(22)는 개발자 IP 만.
 # ★ DB·업로드 사진이 이 서버 안에 있다 — backup.sh(6시간마다) + Lightsail 자동 스냅샷(매일)이 생명줄이다.
 #
-# 메모리(2GB): db 384MB · api 768MB · web 384MB · caddy 128MB + 운영체제. 스왑 2GB 필수(deploy/README.md).
-# 부족해지면 Lightsail 스냅샷으로 4GB 요금제에 새로 만들고 아래 한도만 올린다.
+# 메모리(4GB): db 768MB · api 1.5GB · web 640MB · caddy 128MB + 운영체제. 스왑 1GB(deploy/README.md).
+# 부족해지면 Lightsail 스냅샷으로 8GB 요금제에 새로 만들고 아래 한도만 올린다.
 
 services:
   caddy:
@@ -45,12 +45,12 @@ services:
     environment:
       # 서버 컴포넌트가 API 를 부르는 내부 주소
       API_ORIGIN: http://api:8080
-      NODE_OPTIONS: --max-old-space-size=256
+      NODE_OPTIONS: --max-old-space-size=384
     depends_on:
       - api
     expose:
       - "3000"
-    mem_limit: 384m
+    mem_limit: 640m
     logging: *logs
 
   api:
@@ -68,8 +68,8 @@ services:
         condition: service_healthy
     expose:
       - "8080"
-    # 힙은 이 한도의 70% (Dockerfile 의 MaxRAMPercentage) ≈ 540MB
-    mem_limit: 768m
+    # 힙은 이 한도의 70% (Dockerfile 의 MaxRAMPercentage) ≈ 1.07GB
+    mem_limit: 1536m
     logging: *logs
 
   db:
@@ -79,11 +79,11 @@ services:
       POSTGRES_DB: rizenfood
       POSTGRES_USER: ${DB_USERNAME:-rizen}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 를 .env 에 넣어야 한다}
-    # 2GB 서버 기준으로 작게. API 연결 풀(5) + 백업·관리용 여유.
-    command: ["postgres", "-c", "shared_buffers=96MB", "-c", "max_connections=20", "-c", "work_mem=4MB"]
+    # 4GB 서버 기준. API 연결 풀(5) + 백업·관리용 여유.
+    command: ["postgres", "-c", "shared_buffers=192MB", "-c", "max_connections=20", "-c", "work_mem=8MB"]
     volumes:
       - pgdata:/var/lib/postgresql/data
-    mem_limit: 384m
+    mem_limit: 768m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-rizen} -d rizenfood"]
       interval: 10s
