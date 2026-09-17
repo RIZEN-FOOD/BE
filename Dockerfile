@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# API 서버 이미지. x86(amd64)·ARM(arm64) 둘 다 빌드한다 (.github/workflows/build-image.yml).
-#   docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/rizen-food/be:latest .
+# API 서버 이미지. 운영 서버(Lightsail, x86)용으로 빌드한다 (.github/workflows/build-image.yml).
+#   docker build -t ghcr.io/rizen-food/be:latest .
 #
 # 런타임은 glibc 기반(Ubuntu) Temurin 이다. WebP 인코더(webp-imageio)가 네이티브 라이브러리를
 # 쓰므로 musl 기반(alpine) 이미지는 쓰지 않는다.

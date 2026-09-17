@@ -66,7 +66,8 @@
 ## 4. 배포
 
     sudo mkdir -p /opt/rizen && sudo chown deploy /opt/rizen && cd /opt/rizen
-    # deploy/docker-compose.prod.yml, deploy/Caddyfile, deploy/backup.sh, deploy/make-env.sh 를 이 폴더로 복사
+    # deploy/ 의 docker-compose.prod.yml, Caddyfile, backup.sh, make-env.sh, set-env.sh,
+    #   auto-deploy.sh, rizen-deploy.service, rizen-deploy.timer 를 이 폴더로 복사
     bash make-env.sh     # 운영 .env 생성 — 무작위 값은 자동, 도메인·키만 묻는다. 끝에 첫 관리자 비밀번호·백업 암호가 한 번 나온다
 
     # GitHub Actions 에서 BE "Build API image", FE "Build web image" 를 먼저 실행해 이미지를 만든다
@@ -78,7 +79,25 @@
 - DB 는 첫 기동 때 비어 있고, API 가 뜨면서 Flyway 가 테이블을 만든다.
 - 첫 기동 후: 관리자 로그인 → **관리자 관리**에서 비밀번호 변경 → `.env` 에서 `ADMIN_BOOTSTRAP_*` 두 줄 삭제 → `up -d` 로 재시작.
 - 포트원 키가 아직 없으면 사이트는 정상으로 뜨고 결제만 "결제 준비 중"으로 막힌다. 키가 나오면 `.env` 에 넣고 `up -d`.
-- 업데이트: Actions 에서 이미지 빌드 → 서버에서 `pull` → `up -d` (처리 중 요청은 마치고 내려간다).
+- 업데이트: **main 에 푸시하면 자동 반영**된다 (아래 4-1).
+
+## 4-1. 자동 반영 (CI/CD)
+
+    main 푸시 → GitHub Actions: 테스트(BE 전체 / FE 타입·린트) → 이미지 빌드 → ghcr.io latest
+             → 서버 rizen-deploy.timer(2분마다) → auto-deploy.sh: 새 이미지면 받아서 교체
+             → https://www.도메인 으로 상태 확인 → 실패하면 이전 이미지로 되돌리고 기록
+
+- GitHub 에 서버 접속 키를 두지 않는다. 서버가 가져가는 방식이라 SSH 는 개발자 IP 만 열어 둔 그대로다.
+- 테스트가 실패하면 이미지가 안 만들어지므로 서버에도 안 올라간다.
+- `deploy/` 폴더(compose·Caddy)와 `.md` 만 바뀐 BE 푸시는 빌드하지 않는다. 이런 설정 변경은 서버에 파일을 복사하고 `up -d` 로 직접 반영한다.
+- 설치 (처음 한 번):
+
+      sudo cp rizen-deploy.service rizen-deploy.timer /etc/systemd/system/
+      sudo systemctl daemon-reload && sudo systemctl enable --now rizen-deploy.timer
+
+- 기록: `tail -f /opt/rizen/deploy.log` · 잠시 멈춤: `touch /opt/rizen/deploy.paused` (지우면 재개)
+- 되돌린 이미지는 `/opt/rizen/.deploy/bad-images` 에 남아 다시 올리지 않는다. 고친 코드를 푸시하면 새 이미지라 반영된다.
+- ★ 되돌린 뒤 서버에서 손으로 `docker compose up -d` 를 하지 않는다 — 받은 latest(문제 이미지)가 다시 뜬다. 고친 이미지를 기다리거나 `docker tag <이미지>:previous <이미지>:latest` 후 실행.
 
 ## 5. 백업
 

@@ -1,0 +1,10 @@
+[Unit]
+Description=Rizen Food auto deploy (2분마다)
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

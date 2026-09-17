@@ -1,0 +1,13 @@
+# 운영 자동 반영 (auto-deploy.sh). rizen-deploy.timer 가 2분마다 실행한다.
+#   sudo cp rizen-deploy.service rizen-deploy.timer /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now rizen-deploy.timer
+[Unit]
+Description=Rizen Food auto deploy
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+ExecStart=/usr/bin/bash /opt/rizen/auto-deploy.sh
+TimeoutStartSec=900

@@ -1,13 +1,19 @@
-# API 서버 Docker 이미지를 x86(Lightsail)용으로 빌드해 GitHub 패키지(ghcr.io)에 올린다.
+# API 서버: main 푸시 → 테스트 → Docker 이미지 빌드 → GitHub 패키지(ghcr.io)에 올린다.
 #
-# 지금은 수동 실행만 연다(Actions 탭 → Run workflow). 서버가 준비되면 main 푸시 자동 빌드와
-# 서버 반영 단계를 붙인다.
+# 운영 반영은 서버가 한다. 서버의 auto-deploy(2분마다)가 새 latest 이미지를 보고
+# 받아서 교체하고, 상태 확인에 실패하면 이전 이미지로 되돌린다 (deploy/auto-deploy.sh).
+# 그래서 GitHub 에는 서버 접속 키가 없다.
 #
-# 서버에서 받을 때: 이 저장소가 비공개면 패키지도 비공개다.
-#   서버에서 `docker login ghcr.io` (read:packages 권한 토큰) 후 docker compose pull.
+# 테스트가 실패하면 이미지를 만들지 않는다 = 서버에 반영되지 않는다.
+# deploy/ 폴더(compose·Caddy 설정)만 바뀐 푸시는 이미지와 무관하므로 빌드하지 않는다.
 name: Build API image
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "deploy/**"
+      - "**.md"
   workflow_dispatch:
 
 permissions:
@@ -19,9 +25,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: 테스트 (Testcontainers 포함)
+        run: |
+          sed -i 's/\r$//' gradlew && chmod +x gradlew
+          ./gradlew --no-daemon test
+
+      - name: 실패한 테스트 보고서
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: build/reports/tests/test
+          retention-days: 7
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -45,5 +78,7 @@ jobs:
           tags: |
             ${{ steps.name.outputs.image }}:latest
             ${{ steps.name.outputs.image }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
