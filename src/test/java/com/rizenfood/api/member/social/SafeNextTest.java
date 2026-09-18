@@ -24,7 +24,7 @@ class SafeNextTest {
             "/ok\r\nLocation: https://evil.example",
     })
     void rejectsExternal(String next) {
-        assertThat(SocialAuthController.safeNext(next)).isEqualTo("/mypage");
+        assertThat(SocialAuthController.safeNext(next)).isEqualTo(SocialAuthController.DEFAULT_NEXT);
     }
 
     @ParameterizedTest(name = "[{index}] {0}")

@@ -43,28 +43,51 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     @NonNull FilterChain chain) throws ServletException, IOException {
 
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
-            // 관리자 토큰을 먼저 본다. 있으면 관리자로 인증한다.
-            // 서명이 맞아도, 비밀번호 변경·계정 중지·로그아웃으로 끊긴 토큰이면 인증하지 않는다.
-            var admin = tokenProvider.parseAdminToken(cookies.readAdminToken(request))
-                    .filter(adminSessions::isCurrent);
-            if (admin.isPresent()) {
-                var authority = new SimpleGrantedAuthority("ROLE_" + admin.get().role());
-                var authentication = new UsernamePasswordAuthenticationToken(
-                        admin.get(), null, List.of(authority));
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
-                // 관리자 토큰이 없으면 회원 토큰을 본다.
-                tokenProvider.parseMemberToken(cookies.readMemberAccess(request)).ifPresent(member -> {
-                    var authority = new SimpleGrantedAuthority("ROLE_MEMBER");
-                    var authentication = new UsernamePasswordAuthenticationToken(
-                            member, null, List.of(authority));
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                });
+            // ★ 한 브라우저에 관리자 쿠키와 회원 쿠키가 같이 있을 수 있다 (대표가 관리자에 로그인한 채로
+            //   쇼핑몰을 둘러보는 경우). 그때 요청이 어느 쪽 것인지는 주소로 가른다.
+            //   관리 API 는 관리자 자격으로, 그 밖의 요청은 회원 자격으로 먼저 본다.
+            //   (2026-09-18: 관리자 쿠키가 있으면 회원 요청이 403 이 되어 마이페이지가 로그인 화면으로
+            //    되돌아가던 문제를 고친다.)
+            boolean adminArea = request.getRequestURI().startsWith("/api/admin");
+            boolean authenticated = adminArea
+                    ? authenticateAdmin(request) || authenticateMember(request)
+                    : authenticateMember(request) || authenticateAdmin(request);
+            if (!authenticated) {
+                // 인증 없이 통과시킨다. 공개 API 는 그대로 동작하고, 보호된 API 는 401 이 된다.
+                SecurityContextHolder.clearContext();
             }
         }
 
         chain.doFilter(request, response);
+    }
+
+    /**
+     * 관리자 쿠키로 인증한다.
+     * 서명이 맞아도 비밀번호 변경·계정 중지·로그아웃으로 끊긴 토큰이면 인증하지 않는다.
+     */
+    private boolean authenticateAdmin(HttpServletRequest request) {
+        var admin = tokenProvider.parseAdminToken(cookies.readAdminToken(request))
+                .filter(adminSessions::isCurrent);
+        if (admin.isEmpty()) {
+            return false;
+        }
+        var authority = new SimpleGrantedAuthority("ROLE_" + admin.get().role());
+        var authentication = new UsernamePasswordAuthenticationToken(admin.get(), null, List.of(authority));
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        return true;
+    }
+
+    /** 회원 쿠키로 인증한다. */
+    private boolean authenticateMember(HttpServletRequest request) {
+        var member = tokenProvider.parseMemberToken(cookies.readMemberAccess(request));
+        if (member.isEmpty()) {
+            return false;
+        }
+        var authority = new SimpleGrantedAuthority("ROLE_MEMBER");
+        var authentication = new UsernamePasswordAuthenticationToken(member.get(), null, List.of(authority));
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        return true;
     }
 }

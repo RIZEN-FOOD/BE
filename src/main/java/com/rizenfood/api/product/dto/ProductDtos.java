@@ -189,7 +189,34 @@ public final class ProductDtos {
             NutritionItem nutrition,
             List<IngredientItem> ingredients,
             LabelItem label,
-            List<PurchaseLinkItem> purchaseLinks) {
+            List<PurchaseLinkItem> purchaseLinks,
+            /** 사진형 상세페이지 블록. 없으면 빈 목록. */
+            List<DetailSectionItem> detailSections) {
+    }
+
+    /** 공개 상세 페이지의 한 조각 (사진형 상세페이지). 화면은 위에서 아래로 틈 없이 이어 붙인다. */
+    public record DetailSectionItem(
+            String type,            // IMAGE | VIDEO | TEXT
+            String imageUrl,
+            String altText,
+            String videoUrl,        // 유튜브
+            String videoFileUrl,    // 올린 mp4
+            String thumbnailUrl,
+            String heading,
+            String body,
+            String caption) {
+    }
+
+    /** 관리자 편집용. 저장 키와 미리보기 URL 을 함께 준다. */
+    public record AdminDetailSection(
+            String type,
+            boolean visible,
+            String imageKey, String imageUrl,
+            String altText,
+            String videoUrl,
+            String videoFileKey, String videoFileUrl,
+            String thumbnailKey, String thumbnailUrl,
+            String heading, String body, String caption) {
     }
 
     // ── 관리자 요청 ──────────────────────────────────────────
@@ -200,6 +227,23 @@ public final class ProductDtos {
             @Pattern(regexp = "MAIN|DETAIL|LIFESTYLE", message = "이미지 종류가 올바르지 않습니다.")
             String type,
             int sortOrder) {
+    }
+
+    public record DetailSectionRequest(
+            @Pattern(regexp = "IMAGE|VIDEO|TEXT", message = "블록 종류가 올바르지 않습니다.")
+            String type,
+            boolean visible,
+            @Size(max = 500) String imageKey,
+            @Size(max = 300, message = "사진 설명은 300자까지 넣을 수 있습니다.") String altText,
+            @Size(max = 1000) String videoUrl,
+            @Size(max = 500) String videoFileKey,
+            @Size(max = 500) String thumbnailKey,
+            @Size(max = 200, message = "제목은 200자까지 넣을 수 있습니다.") String heading,
+            @Size(max = 5000, message = "내용은 5000자까지 넣을 수 있습니다.") String body,
+            @Size(max = 500, message = "캡션은 500자까지 넣을 수 있습니다.") String caption) {
+    }
+
+    public record DetailSectionsRequest(java.util.List<DetailSectionRequest> sections) {
     }
 
     public record OptionRequest(

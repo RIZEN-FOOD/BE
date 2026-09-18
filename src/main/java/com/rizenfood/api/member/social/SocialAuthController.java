@@ -53,7 +53,8 @@ public class SocialAuthController {
 
     private static final Logger log = LoggerFactory.getLogger(SocialAuthController.class);
 
-    static final String DEFAULT_NEXT = "/mypage";
+    /** 로그인 뒤 기본 도착지 — 메인 화면 (2026-09-18 요청). next 가 있으면 그쪽을 쓴다. */
+    static final String DEFAULT_NEXT = "/";
     static final String SIGNUP_PAGE = "/auth/social-signup";
     static final String LOGIN_PAGE = "/auth/login";
 

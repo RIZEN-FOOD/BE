@@ -23,11 +23,14 @@ public class ProductService {
     private final ProductRepository repository;
     private final ProductMapper mapper;
     private final HtmlSanitizer sanitizer;
+    private final ProductDetailSectionService detailSections;
 
-    public ProductService(ProductRepository repository, ProductMapper mapper, HtmlSanitizer sanitizer) {
+    public ProductService(ProductRepository repository, ProductMapper mapper, HtmlSanitizer sanitizer,
+                          ProductDetailSectionService detailSections) {
         this.repository = repository;
         this.mapper = mapper;
         this.sanitizer = sanitizer;
+        this.detailSections = detailSections;
     }
 
     // ── 공개 ─────────────────────────────────────────────────
@@ -85,7 +88,7 @@ public class ProductService {
     public ProductDtos.Detail getPublic(String slug) {
         // 숨긴 상품도 404 다. 403 을 주면 "그 주소에 뭔가 있다"는 걸 알려주는 셈이다.
         return repository.findBySlugAndVisibleTrue(slug)
-                .map(mapper::toDetail)
+                .map(p -> mapper.toDetail(p, detailSections.listPublic(p.getId())))
                 .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
     }
 
@@ -99,7 +102,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public ProductDtos.Detail getForAdmin(Long id) {
         return repository.findWithDetailsById(id)
-                .map(mapper::toDetail)
+                .map(p -> mapper.toDetail(p, detailSections.listPublic(p.getId())))
                 .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
     }
 

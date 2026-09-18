@@ -93,6 +93,11 @@ public class ProductMapper {
     }
 
     public ProductDtos.Detail toDetail(Product p) {
+        return toDetail(p, java.util.List.of());
+    }
+
+    /** 사진형 상세페이지 블록까지 함께 담는다. */
+    public ProductDtos.Detail toDetail(Product p, java.util.List<ProductDtos.DetailSectionItem> sections) {
         return new ProductDtos.Detail(
                 p.getId(), p.getSlug(), p.getNameKo(), p.getNameEn(), p.getSubtitle(),
                 p.getDescriptionHtml(),
@@ -117,7 +122,8 @@ public class ProductMapper {
                 map(p.getIngredients(), this::toIngredientItem),
                 toLabelItem(p.getLabel()),
                 map(p.getPurchaseLinks().stream().filter(PurchaseLink::isVisible).toList(),
-                        this::toPurchaseLinkItem));
+                        this::toPurchaseLinkItem),
+                sections);
     }
 
     /**
