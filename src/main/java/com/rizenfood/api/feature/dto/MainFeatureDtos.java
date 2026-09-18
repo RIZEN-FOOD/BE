@@ -21,6 +21,8 @@ public final class MainFeatureDtos {
             String title,
             String body,
             String imageUrl,
+            /** 모바일 전용 사진. 없으면 null — 화면은 imageUrl 을 그대로 쓴다. */
+            String imageMobileUrl,
             String altText,
             boolean useNutritionBody) {
     }
@@ -32,6 +34,8 @@ public final class MainFeatureDtos {
             String body,
             String imageKey,
             String imageUrl,
+            String imageMobileKey,
+            String imageMobileUrl,
             String altText,
             boolean autoNutritionBody,
             int sortOrder,
@@ -47,6 +51,9 @@ public final class MainFeatureDtos {
             String body,
 
             @Size(max = 500) String imageKey,
+
+            /** 모바일 전용 사진(선택). 비면 PC 사진을 그대로 쓴다. */
+            @Size(max = 500) String imageMobileKey,
 
             @Size(max = 300, message = "사진 설명은 300자까지 넣을 수 있습니다.")
             String altText,

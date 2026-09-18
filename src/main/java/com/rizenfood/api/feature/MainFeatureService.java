@@ -35,6 +35,7 @@ public class MainFeatureService {
                 .map(f -> new MainFeatureDtos.PublicItem(
                         f.getId(), f.getTitle(), f.getBody(),
                         url(f.getImageKey(), ImageVariant.LARGE),
+                        url(f.getImageMobileKey(), ImageVariant.LARGE),
                         f.getAltText() == null ? f.getTitle() : f.getAltText(),
                         f.isAutoNutritionBody()))
                 .toList();
@@ -46,6 +47,7 @@ public class MainFeatureService {
                 .map(f -> new MainFeatureDtos.AdminItem(
                         f.getId(), f.getTitle(), f.getBody(),
                         f.getImageKey(), url(f.getImageKey(), ImageVariant.MEDIUM),
+                        f.getImageMobileKey(), url(f.getImageMobileKey(), ImageVariant.MEDIUM),
                         f.getAltText(), f.isAutoNutritionBody(), f.getSortOrder(), f.isVisible()))
                 .toList();
     }
@@ -108,6 +110,7 @@ public class MainFeatureService {
     private void apply(MainFeature f, MainFeatureDtos.SaveRequest r) {
         f.setBody(r.body());
         f.setImageKey(r.imageKey());
+        f.setImageMobileKey(r.imageMobileKey());
         f.setAltText(r.altText());
         f.setAutoNutritionBody(r.autoNutritionBody());
         f.setVisible(r.visible());

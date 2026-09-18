@@ -33,6 +33,10 @@ public class MainFeature {
     @Column(name = "image_key", length = 500)
     private String imageKey;
 
+    /** 모바일 전용 사진(세로). 비면 imageKey 를 쓴다. */
+    @Column(name = "image_mobile_key", length = 500)
+    private String imageMobileKey;
+
     @Column(name = "alt_text", length = 300)
     private String altText;
 
@@ -72,6 +76,9 @@ public class MainFeature {
 
     public String getImageKey() { return imageKey; }
     public void setImageKey(String v) { this.imageKey = (v == null || v.isBlank()) ? null : v; }
+
+    public String getImageMobileKey() { return imageMobileKey; }
+    public void setImageMobileKey(String v) { this.imageMobileKey = (v == null || v.isBlank()) ? null : v; }
 
     public String getAltText() { return altText; }
     public void setAltText(String v) { this.altText = (v == null || v.isBlank()) ? null : v; }
