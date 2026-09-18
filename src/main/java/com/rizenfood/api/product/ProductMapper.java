@@ -61,7 +61,8 @@ public class ProductMapper {
                 variantUrl(heroKey, ImageVariant.MEDIUM),
                 variantUrl(p.getHeroBackdropKey(), ImageVariant.MEDIUM),
                 accents,
-                p.isVisible());
+                p.isVisible(),
+                toNutritionItem(p.getNutrition()));
     }
 
     private static boolean notBlank(String s) {
