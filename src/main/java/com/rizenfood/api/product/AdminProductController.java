@@ -38,11 +38,36 @@ import jakarta.validation.Valid;
 public class AdminProductController {
 
     private final ProductService service;
+    private final ProductDetailSectionService detailSections;
     private final AuditService auditService;
 
-    public AdminProductController(ProductService service, AuditService auditService) {
+    public AdminProductController(ProductService service,
+                                  ProductDetailSectionService detailSections,
+                                  AuditService auditService) {
         this.service = service;
+        this.detailSections = detailSections;
         this.auditService = auditService;
+    }
+
+    // ── 상세페이지 섹션 (사진형 상세페이지) ────────────────────
+
+    @GetMapping("/{id}/detail-sections")
+    public java.util.List<ProductDtos.AdminDetailSection> detailSections(@PathVariable Long id) {
+        return detailSections.listForAdmin(id);
+    }
+
+    /** 관리자 화면이 정리한 순서 그대로 통째로 저장한다. */
+    @PutMapping("/{id}/detail-sections")
+    public ResponseEntity<Map<String, String>> saveDetailSections(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductDtos.DetailSectionsRequest request,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedAdmin admin,
+            HttpServletRequest httpRequest) {
+        detailSections.replaceAll(id, request.sections());
+        int count = request.sections() == null ? 0 : request.sections().size();
+        auditService.record(admin.id(), admin.displayName(), "UPDATE_DETAIL_SECTIONS",
+                "PRODUCT", String.valueOf(id), "블록 " + count + "개", httpRequest);
+        return ResponseEntity.ok(Map.of("message", "저장되었습니다."));
     }
 
     @GetMapping
