@@ -23,18 +23,25 @@ final class OrderShippingSheet {
     private OrderShippingSheet() {
     }
 
+    /**
+     * 맨 뒤 두 칸(택배사·송장번호)은 <b>빈 칸으로 내보낸다.</b>
+     * 출고 대행사가 그 자리에 송장을 채워 그대로 돌려주면 관리자에서 한 번에 올릴 수 있다
+     * ({@link OrderTrackingSheet} 가 같은 칸 이름을 찾아 읽는다).
+     */
     static final List<String> HEADERS = List.of(
             "주문번호", "주문일시", "주문상태",
             "받는 분", "받는 분 연락처", "우편번호", "주소", "상세주소", "배송메모",
             "상품명", "옵션", "수량",
-            "주문자", "주문자 연락처", "배송비", "결제금액");
+            "주문자", "주문자 연락처", "배송비", "결제금액",
+            "택배사", "송장번호");
 
-    private static final int[] WIDTHS = {22, 17, 11, 10, 15, 8, 44, 24, 24, 26, 14, 6, 10, 15, 9, 11};
+    private static final int[] WIDTHS = {22, 17, 11, 10, 15, 8, 44, 24, 24, 26, 14, 6, 10, 15, 9, 11, 12, 18};
 
     private static final DateTimeFormatter KST =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withZone(ZoneId.of("Asia/Seoul"));
 
-    private static final Map<String, String> STATUS_LABEL = Map.of(
+    /** 주문 상태를 대표가 읽을 수 있는 말로. 엑셀과 오류 안내에서 같이 쓴다. */
+    static final Map<String, String> STATUS_LABEL = Map.of(
             "PENDING", "결제 대기", "PAID", "결제 완료", "PREPARING", "상품 준비중",
             "SHIPPED", "배송중", "DELIVERED", "배송 완료", "CANCELLED", "취소됨", "REFUNDED", "환불됨");
 
@@ -68,7 +75,9 @@ final class OrderShippingSheet {
                 o.getOrdererName(),
                 formatPhone(decryptPhone.apply(o.getOrdererPhoneEncrypted())),
                 first ? o.getShippingFee() : null,
-                first ? o.getTotalAmount() : null);
+                first ? o.getTotalAmount() : null,
+                null,   // 택배사 — 대행사가 채운다
+                null);  // 송장번호 — 대행사가 채운다
     }
 
     /** 숫자만 있는 번호를 010-1234-5678 형태로. 모르는 형태면 그대로 둔다. */

@@ -1,7 +1,10 @@
 package com.rizenfood.api.order;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -24,6 +27,7 @@ import com.rizenfood.api.product.Product;
 import com.rizenfood.api.product.ProductOption;
 import com.rizenfood.api.product.ProductOptionRepository;
 import com.rizenfood.api.product.ProductRepository;
+import com.rizenfood.api.setting.SiteSettingRepository;
 import com.rizenfood.api.shipping.IslandZipService;
 import com.rizenfood.api.shipping.ShippingPolicy;
 import com.rizenfood.api.shipping.ShippingPolicyRepository;
@@ -57,6 +61,7 @@ public class OrderService {
     private final PaymentGateway paymentGateway;
     private final CartRepository cartRepository;
     private final IslandZipService islandZipService;
+    private final SiteSettingRepository siteSettingRepository;
 
     public OrderService(CartItemRepository cartItemRepository,
                         ProductRepository productRepository,
@@ -71,7 +76,8 @@ public class OrderService {
                         OrderNoGenerator orderNoGenerator,
                         PaymentGateway paymentGateway,
                         CartRepository cartRepository,
-                        IslandZipService islandZipService) {
+                        IslandZipService islandZipService,
+                        SiteSettingRepository siteSettingRepository) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -86,6 +92,7 @@ public class OrderService {
         this.paymentGateway = paymentGateway;
         this.cartRepository = cartRepository;
         this.islandZipService = islandZipService;
+        this.siteSettingRepository = siteSettingRepository;
     }
 
     /** 재고 부족으로 주문을 만들 수 없을 때. 409 로 매핑된다. */
@@ -518,6 +525,108 @@ public class OrderService {
                 .orElseGet(() -> deliveryRepository.save(new Delivery(o.getId())));
         delivery.ship(carrier, trackingNo);
         o.applyStatus(Order.Status.SHIPPED.name());
+    }
+
+    // ── 송장 엑셀 일괄 등록 ──────────────────────────────────
+
+    /** 송장번호에 허용하는 글자. 한 건씩 넣을 때(ShipRequest)와 같은 기준이다. */
+    private static final Pattern TRACKING_NO = Pattern.compile("^[0-9A-Za-z-]{6,40}$");
+
+    /** 송장을 넣을 수 있는 주문 상태. 취소·환불된 주문에 송장이 붙는 일을 막는다. */
+    private static final List<String> SHIPPABLE = List.of(
+            Order.Status.PAID.name(), Order.Status.PREPARING.name(), Order.Status.SHIPPED.name());
+
+    /**
+     * 처리하지 못한 한 줄.
+     *
+     * @param rowNo 엑셀에서 사람이 보는 줄 번호
+     */
+    public record TrackingFailure(int rowNo, String orderNo, String reason) {
+    }
+
+    /**
+     * @param applied 실제로 송장이 들어간 주문 수
+     * @param skipped 이미 같은 송장이 들어 있어 건너뛴 줄 수(같은 파일을 두 번 올려도 안전하다)
+     */
+    public record BulkShipResult(int total, int applied, int skipped, List<TrackingFailure> failures) {
+    }
+
+    /**
+     * 출고 대행사가 송장을 채워 보낸 엑셀을 한 번에 반영한다.
+     *
+     * 한 주문에 상품이 여러 개면 엑셀에 같은 주문번호가 여러 줄 나온다. 그래서 주문번호마다
+     * 한 번만 처리하고, 두 번째부터는 조용히 건너뛴다.
+     *
+     * 잘못된 줄이 있어도 <b>나머지는 그대로 반영한다.</b> 한 줄 때문에 전체가 실패하면
+     * 대표가 엑셀에서 그 줄을 찾아 고칠 때까지 출고가 멈춘다.
+     */
+    @Transactional
+    public BulkShipResult adminBulkShip(byte[] file) {
+        List<OrderTrackingSheet.Row> rows = OrderTrackingSheet.parse(file);
+
+        String defaultCarrier = siteSettingRepository.findById("shipping.carrier")
+                .map(s -> s.getValue() == null ? "" : s.getValue().trim())
+                .filter(v -> !v.isEmpty())
+                .orElse(null);
+
+        List<TrackingFailure> failures = new ArrayList<>();
+        Set<String> done = new HashSet<>();
+        int applied = 0;
+        int skipped = 0;
+
+        for (OrderTrackingSheet.Row row : rows) {
+            String orderNo = row.orderNo();
+            String trackingNo = row.trackingNo();
+
+            if (orderNo.isEmpty()) {
+                failures.add(new TrackingFailure(row.rowNo(), null, "주문번호가 비어 있습니다."));
+                continue;
+            }
+            if (trackingNo.isEmpty()) {
+                continue; // 아직 송장이 안 나온 줄. 실패가 아니라 다음에 올리면 된다.
+            }
+            if (!done.add(orderNo)) {
+                skipped++;
+                continue; // 같은 주문의 두 번째 상품 줄
+            }
+            if (!TRACKING_NO.matcher(trackingNo).matches()) {
+                failures.add(new TrackingFailure(row.rowNo(), orderNo, "송장번호 형식이 올바르지 않습니다: " + trackingNo));
+                continue;
+            }
+
+            Order order = orderRepository.findByOrderNo(orderNo).orElse(null);
+            if (order == null) {
+                failures.add(new TrackingFailure(row.rowNo(), orderNo, "그런 주문번호가 없습니다."));
+                continue;
+            }
+            if (!SHIPPABLE.contains(order.getStatus())) {
+                failures.add(new TrackingFailure(row.rowNo(), orderNo,
+                        "송장을 넣을 수 없는 주문입니다 (현재 "
+                                + OrderShippingSheet.STATUS_LABEL.getOrDefault(order.getStatus(), order.getStatus())
+                                + ")."));
+                continue;
+            }
+
+            Delivery delivery = deliveryRepository.findByOrderId(order.getId())
+                    .orElseGet(() -> deliveryRepository.save(new Delivery(order.getId())));
+            if (trackingNo.equals(delivery.getTrackingNo())) {
+                skipped++;
+                continue; // 같은 파일을 두 번 올린 경우
+            }
+
+            String carrier = row.carrier().isEmpty() ? defaultCarrier : row.carrier();
+            if (carrier == null || carrier.isEmpty()) {
+                failures.add(new TrackingFailure(row.rowNo(), orderNo,
+                        "택배사가 없습니다. 엑셀에 적거나 사이트 설정에서 기본 택배사를 정해 주세요."));
+                continue;
+            }
+
+            delivery.ship(carrier, trackingNo);
+            order.applyStatus(Order.Status.SHIPPED.name());
+            applied++;
+        }
+
+        return new BulkShipResult(rows.size(), applied, skipped, failures);
     }
 
     /** 출고용 엑셀에 담을 기본 상태: 결제는 끝났고 아직 출고 전인 주문. */
