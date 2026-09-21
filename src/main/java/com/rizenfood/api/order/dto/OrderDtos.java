@@ -79,7 +79,23 @@ public final class OrderDtos {
             int totalAmount,
             Instant orderedAt,
             Instant paidAt,
-            List<ItemView> items) {
+            List<ItemView> items,
+            /** 운송장. 아직 안 나왔으면 null. */
+            DeliveryView delivery) {
+    }
+
+    /**
+     * 손님에게 보여줄 배송 정보.
+     *
+     * @param trackingUrl 택배사 조회 화면 주소. 설정이 비었거나 송장이 없으면 null.
+     */
+    public record DeliveryView(
+            String status,
+            String carrier,
+            String trackingNo,
+            String trackingUrl,
+            Instant shippedAt,
+            Instant deliveredAt) {
     }
 
     /** 주문 목록 한 줄(마이페이지). */

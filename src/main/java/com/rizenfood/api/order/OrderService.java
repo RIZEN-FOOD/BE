@@ -27,6 +27,7 @@ import com.rizenfood.api.product.Product;
 import com.rizenfood.api.product.ProductOption;
 import com.rizenfood.api.product.ProductOptionRepository;
 import com.rizenfood.api.product.ProductRepository;
+import com.rizenfood.api.setting.SiteSetting;
 import com.rizenfood.api.setting.SiteSettingRepository;
 import com.rizenfood.api.shipping.IslandZipService;
 import com.rizenfood.api.shipping.ShippingPolicy;
@@ -700,7 +701,41 @@ public class OrderService {
                 o.getTotalAmount(),
                 o.getOrderedAt(),
                 o.getPaidAt(),
-                items);
+                items,
+                deliveryView(o));
+    }
+
+    /** 송장번호 자리. 택배사가 바뀌어도 설정만 고치면 되도록 주소를 통째로 설정에서 읽는다. */
+    private static final String TRACKING_NO_MARK = "{{송장번호}}";
+
+    /**
+     * 손님에게 보여줄 배송 정보. 송장이 아직 없으면 null 이다.
+     *
+     * 조회 주소는 설정(shipping.tracking_url)에서 읽는다. 비어 있으면 송장번호만 보여주고
+     * 조회 버튼은 내지 않는다 — 엉뚱한 곳으로 보내는 것보다 낫다.
+     */
+    private OrderDtos.DeliveryView deliveryView(Order o) {
+        Delivery d = deliveryRepository.findByOrderId(o.getId()).orElse(null);
+        if (d == null || d.getTrackingNo() == null || d.getTrackingNo().isBlank()) {
+            return null;
+        }
+        return new OrderDtos.DeliveryView(
+                d.getStatus(), d.getCarrier(), d.getTrackingNo(),
+                trackingUrl(d.getTrackingNo()), d.getShippedAt(), d.getDeliveredAt());
+    }
+
+    private String trackingUrl(String trackingNo) {
+        String template = siteSettingRepository.findById("shipping.tracking_url")
+                .map(SiteSetting::getValue)
+                .map(String::trim)
+                .filter(v -> !v.isEmpty())
+                .orElse(null);
+        // 관리자가 http(s) 가 아닌 주소를 넣어도 손님 화면에 링크로 나가지 않게 한다.
+        if (template == null || !template.startsWith("https://") || !template.contains(TRACKING_NO_MARK)) {
+            return null;
+        }
+        return template.replace(TRACKING_NO_MARK,
+                java.net.URLEncoder.encode(trackingNo, java.nio.charset.StandardCharsets.UTF_8));
     }
 
     private OrderDtos.OrderSummary toSummary(Order o) {
