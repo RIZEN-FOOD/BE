@@ -33,7 +33,9 @@ public class MaintenanceScheduler {
             return -1; // 지운 건수를 돌려주지 않는 쿼리다
         });
         int members = run("보존기간이 지난 탈퇴 회원", tasks::purgeWithdrawnMembers);
-        log.info("정리 완료 — 장바구니 {}건, 탈퇴 회원 {}건", Math.max(carts, 0), Math.max(members, 0));
+        int delivered = run("배송완료 자동 처리", tasks::completeOldDeliveries);
+        log.info("정리 완료 — 장바구니 {}건, 탈퇴 회원 {}건, 배송완료 {}건",
+                Math.max(carts, 0), Math.max(members, 0), Math.max(delivered, 0));
     }
 
     /** 실패해도 서비스는 계속 떠 있어야 한다. 다만 조용히 넘기지 않고 오류로 남긴다. */
