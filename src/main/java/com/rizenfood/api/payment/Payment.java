@@ -70,6 +70,17 @@ public class Payment {
         this.amount = amount;
     }
 
+    /**
+     * PG 거래키만 먼저 적어둔다 (승인 전).
+     *
+     * 나이스처럼 인증과 승인이 나뉜 PG 는 인증 단계에서 받은 거래키가 있어야 승인을 부를 수 있다.
+     * 아직 결제된 것이 아니므로 상태는 건드리지 않는다.
+     */
+    public void rememberTid(String pgTid) {
+        this.pgTid = pgTid;
+        this.updatedAt = Instant.now();
+    }
+
     public void markPaid(String pgTid, String method, String receiptUrl) {
         this.pgTid = pgTid;
         this.method = method;

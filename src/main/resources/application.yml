@@ -75,6 +75,9 @@ app:
     # 휴대폰 번호 암호화 키 (base64 32바이트). .env 로만 넣는다.
     phone-key: ${PHONE_ENC_KEY:}
 
+  # 손님 브라우저를 되돌려 보낼 사이트 주소. 결제창에서 돌아올 때 쓴다(나이스 returnUrl).
+  # 비어 있으면 상대경로로 돌려보낸다 — 로컬 개발에서는 그걸로 충분하다.
+  site-url: ${SITE_URL:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3200}
 
@@ -89,10 +92,20 @@ app:
     enabled: ${RATE_LIMIT_ENABLED:true}
 
   payment:
-    # mock | portone. 포트원 계약·키가 준비되면 PAYMENT_PROVIDER=portone 으로 바꾼다.
+    # mock | portone | nicepay. 계약한 PG 에 맞춰 PAYMENT_PROVIDER 로 고른다.
+    #   nicepay — 나이스페이 신모듈(Server 승인 + Basic 인증). 2026-09-21 이 방식으로 계약했다.
+    #   portone — 포트원 V2. 우리 나이스 계약은 포트원이 지원하지 않아 쓰지 않지만 코드는 남겨둔다.
     provider: ${PAYMENT_PROVIDER:mock}
     # 결제창 이탈 등으로 결제되지 않은 주문을 이 시간이 지나면 정리하고 재고를 되돌린다.
     pending-expire-minutes: 30
+    nicepay:
+      # 브라우저가 결제창을 여는 데 쓰는 공개값 (R1_/R2_ 로 시작).
+      client-id: ${NICEPAY_CLIENT_ID:}
+      # ★ 서버 전용 비밀값. 승인·취소 API 인증과 위변조 서명 검증에 쓴다. 프론트 노출 금지.
+      secret-key: ${NICEPAY_SECRET_KEY:}
+      # 나이스 상점관리자에 설정한 결제취소 비밀번호. 환불에 필요할 수 있다.
+      cancel-password: ${NICEPAY_CANCEL_PASSWORD:}
+      api-base: https://api.nicepay.co.kr
     portone:
       # ★ 서버 전용 비밀값(결제 검증·취소). .env 로만 넣는다. 프론트·저장소 노출 금지.
       api-secret: ${PORTONE_API_SECRET:}

@@ -79,6 +79,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/payment/config").permitAll()
                         // 포트원 웹훅. 로그인 대신 서명(HMAC)으로 검증한다 (PortOneWebhookController).
                         .requestMatchers(HttpMethod.POST, "/api/payment/webhook/portone").permitAll()
+                        // 나이스 결제창 인증 결과. 나이스가 브라우저를 통해 POST 하므로 우리 쿠키가 실리지 않는다.
+                        // 로그인 대신 위변조 서명으로 검증한다 (NicePayReturnController).
+                        .requestMatchers(HttpMethod.POST, "/api/payment/nicepay/return").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.

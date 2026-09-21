@@ -332,6 +332,31 @@ public class OrderService {
         return WebhookSettle.SETTLED;
     }
 
+    /**
+     * PG 거래키를 결제 기록에 적어둔다 (승인 전).
+     *
+     * 나이스처럼 인증과 승인이 나뉜 PG 는 인증 결과로 받은 거래키가 있어야 승인을 부를 수 있다.
+     * 아직 결제된 것이 아니므로 주문 상태는 바꾸지 않는다.
+     *
+     * @return 붙일 주문·결제 기록을 찾았으면 true
+     */
+    @Transactional
+    public boolean rememberPgTid(String orderNo, String tid) {
+        if (tid == null || tid.isBlank()) {
+            return false;
+        }
+        Order order = orderRepository.findByOrderNo(orderNo).orElse(null);
+        if (order == null) {
+            return false;
+        }
+        Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+        if (payment == null) {
+            return false;
+        }
+        payment.rememberTid(tid);
+        return true;
+    }
+
     /** 이 결제가 우리 쪽에서도 취소(전액·부분)로 기록돼 있는지 — 포트원 취소 웹훅 대조용 */
     @Transactional(readOnly = true)
     public boolean isRecordedAsCancelled(String orderNo) {
