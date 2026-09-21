@@ -28,9 +28,10 @@ server:
 
 app:
   payment:
-    # ★ 운영에서는 모의 결제로 떨어질 수 없게 고정한다. 환경변수로 바꾸지 못한다.
-    #   이 값이 비거나 오타 나면 "돈은 안 들어왔는데 결제 완료"가 된다.
-    provider: portone
+    # 계약한 PG 를 .env 의 PAYMENT_PROVIDER 로 고른다 (nicepay | portone).
+    # ★ 운영에서 모의 결제로 떨어지면 "돈은 안 들어왔는데 결제 완료"가 된다.
+    #   그래서 값이 비거나 오타 나거나 mock 이면 PaymentProviderGuard 가 서버를 아예 띄우지 않는다.
+    provider: ${PAYMENT_PROVIDER:nicepay}
   jwt:
     # 운영은 HTTPS 로만 쿠키가 오간다. 환경변수로 끌 수 없게 고정한다.
     secure-cookie: true
