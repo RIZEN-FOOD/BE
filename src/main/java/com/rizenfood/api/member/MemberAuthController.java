@@ -91,6 +91,8 @@ public class MemberAuthController {
                         cookies.memberAccess(access, tokenProvider.memberAccessSeconds()).toString())
                 .header(HttpHeaders.SET_COOKIE,
                         cookies.memberRefresh(result.newRefreshRaw(), tokenProvider.memberRefreshSeconds()).toString())
+                .header(HttpHeaders.SET_COOKIE,
+                        cookies.memberHint(tokenProvider.memberRefreshSeconds()).toString())
                 .body(Map.of("message", "갱신되었습니다."));
     }
 
@@ -134,7 +136,8 @@ public class MemberAuthController {
     private ResponseEntity.BodyBuilder clearSession() {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookies.expiredMemberAccess().toString())
-                .header(HttpHeaders.SET_COOKIE, cookies.expiredMemberRefresh().toString());
+                .header(HttpHeaders.SET_COOKIE, cookies.expiredMemberRefresh().toString())
+                .header(HttpHeaders.SET_COOKIE, cookies.expiredMemberHint().toString());
     }
 
     /** 로그인 기기 기록용 접속자 IP. 위조 가능한 X-Forwarded-For 대신 ClientIpResolver 가 정한다. */

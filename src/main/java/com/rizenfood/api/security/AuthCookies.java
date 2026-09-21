@@ -88,6 +88,30 @@ public class AuthCookies {
         return read(request, MEMBER_ACCESS);
     }
 
+    // ── 로그인 여부 표식 ──────────────────────────────────────
+    //
+    // 토큰이 아니다. "이 브라우저는 로그인한 적이 있다"는 표식일 뿐이라 JS 가 읽을 수 있다.
+    // 화면이 이걸 보고 /me 를 물어볼지 정한다 — 손님은 아예 묻지 않아 401 이 뜨지 않는다.
+    //
+    // ★ 인증에 쓰지 않는다. 서버는 오직 HttpOnly 토큰으로만 판단하므로,
+    //   이 쿠키를 손으로 만들어도 /me 는 그대로 401 이다.
+
+    public static final String MEMBER_HINT = "rizen_member_signed_in";
+
+    public ResponseCookie memberHint(long maxAgeSeconds) {
+        return ResponseCookie.from(MEMBER_HINT, maxAgeSeconds > 0 ? "1" : "")
+                .httpOnly(false)
+                .secure(properties.secureCookie())
+                .sameSite(properties.sameSite())
+                .path(ADMIN_PATH)
+                .maxAge(maxAgeSeconds)
+                .build();
+    }
+
+    public ResponseCookie expiredMemberHint() {
+        return memberHint(0);
+    }
+
     // ── 간편 로그인 쿠키 ──────────────────────────────────────
     //
     // 로그인 시작 → 콜백 → 동의 화면 사이에서만 쓰인다. 경로를 /api/auth/oauth 로 좁히고

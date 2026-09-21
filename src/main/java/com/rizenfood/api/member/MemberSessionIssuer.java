@@ -32,13 +32,14 @@ public class MemberSessionIssuer {
         this.ipResolver = ipResolver;
     }
 
-    /** Set-Cookie 헤더에 넣을 값 두 개 (access, refresh). */
+    /** Set-Cookie 헤더에 넣을 값 세 개 (access, refresh, 로그인 표식). */
     public List<String> sessionCookies(Member member, HttpServletRequest http) {
         String access = tokenProvider.createMemberAccessToken(member.getId(), member.getName());
         String refresh = authService.issueRefreshToken(
                 member.getId(), http.getHeader("User-Agent"), ipResolver.resolve(http));
         return List.of(
                 cookies.memberAccess(access, tokenProvider.memberAccessSeconds()).toString(),
-                cookies.memberRefresh(refresh, tokenProvider.memberRefreshSeconds()).toString());
+                cookies.memberRefresh(refresh, tokenProvider.memberRefreshSeconds()).toString(),
+                cookies.memberHint(tokenProvider.memberRefreshSeconds()).toString());
     }
 }
