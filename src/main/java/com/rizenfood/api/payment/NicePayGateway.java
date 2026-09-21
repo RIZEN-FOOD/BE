@@ -232,6 +232,17 @@ public class NicePayGateway implements PaymentGateway {
         }
     }
 
+    /**
+     * 결과 통보(웹훅·승인 응답) 서명 검증.
+     * 생성규칙 : hex(sha256(tid + amount + ediDate + SecretKey))
+     */
+    boolean verifyResultSignature(String tid, String amount, String ediDate, String signature) {
+        if (signature == null || signature.isBlank()) {
+            return false;
+        }
+        return sha256Hex(tid + amount + ediDate + secretKey).equalsIgnoreCase(signature);
+    }
+
     /** 인증 응답(returnUrl) 서명 검증. 컨트롤러가 쓴다. */
     boolean verifyAuthSignature(String authToken, String amount, String signature) {
         if (signature == null || signature.isBlank()) {

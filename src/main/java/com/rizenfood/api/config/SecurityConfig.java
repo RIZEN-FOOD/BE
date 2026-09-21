@@ -82,6 +82,8 @@ public class SecurityConfig {
                         // 나이스 결제창 인증 결과. 나이스가 브라우저를 통해 POST 하므로 우리 쿠키가 실리지 않는다.
                         // 로그인 대신 위변조 서명으로 검증한다 (NicePayReturnController).
                         .requestMatchers(HttpMethod.POST, "/api/payment/nicepay/return").permitAll()
+                        // 나이스 결과 통보(웹훅). 서버끼리 오는 요청이라 로그인이 없다 — 서명으로 검증한다.
+                        .requestMatchers(HttpMethod.POST, "/api/payment/webhook/nicepay").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.
