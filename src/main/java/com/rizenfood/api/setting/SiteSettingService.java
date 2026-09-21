@@ -30,7 +30,8 @@ public class SiteSettingService {
             "order.",     // 주문 마감 시각·비회원 주문 허용
             "shipping.",  // 택배사·반품지·도서산간 안내
             "main.",      // 메인 화면 구성
-            "auth.");     // 로그인·가입 화면 배경
+            "auth.",      // 로그인·가입 화면 배경
+            "privacy.");  // 개인정보 수탁업체 (처리방침에 공개 의무)
 
     /** 주소를 넣는 칸. 스크립트 주소(javascript:)가 들어가면 화면에서 그대로 링크가 된다. */
     private static final Set<String> URL_KEYS = Set.of(
