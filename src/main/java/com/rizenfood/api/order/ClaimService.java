@@ -35,6 +35,7 @@ public class ClaimService {
     private final StockLedgerRepository stockLedgerRepository;
     /** 취소·반품 완료 시 PG 환불 요청용 (포트원 또는 모의). */
     private final com.rizenfood.api.payment.PaymentGateway paymentGateway;
+    private final com.rizenfood.api.coupon.CouponService couponService;
 
     public ClaimService(OrderRepository orderRepository,
                         OrderClaimRepository claimRepository,
@@ -42,7 +43,8 @@ public class ClaimService {
                         ProductRepository productRepository,
                         ProductOptionRepository optionRepository,
                         StockLedgerRepository stockLedgerRepository,
-                        com.rizenfood.api.payment.PaymentGateway paymentGateway) {
+                        com.rizenfood.api.payment.PaymentGateway paymentGateway,
+                        com.rizenfood.api.coupon.CouponService couponService) {
         this.orderRepository = orderRepository;
         this.claimRepository = claimRepository;
         this.paymentRepository = paymentRepository;
@@ -50,6 +52,7 @@ public class ClaimService {
         this.optionRepository = optionRepository;
         this.stockLedgerRepository = stockLedgerRepository;
         this.paymentGateway = paymentGateway;
+        this.couponService = couponService;
     }
 
     // ── 고객 ──────────────────────────────────────────────────
@@ -134,6 +137,8 @@ public class ClaimService {
                 throw new IllegalArgumentException("이미 취소·환불이 끝난 주문입니다.");
             }
             restock(order);
+            // 할인코드를 썼던 주문이면 한 장을 되돌린다. 취소·환불은 "안 산 것"으로 센다.
+            couponService.release(order.getCouponId());
             String nextOrderStatus = claim.getType().equals("CANCEL") ? "CANCELLED" : "REFUNDED";
             order.applyStatus(nextOrderStatus);
             if (refund == null) {

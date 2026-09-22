@@ -17,7 +17,9 @@ import com.rizenfood.api.cart.CartItemRepository;
 import com.rizenfood.api.cart.CartRepository;
 import com.rizenfood.api.common.NotFoundException;
 import com.rizenfood.api.image.ImageService;
+import com.rizenfood.api.coupon.CouponService;
 import com.rizenfood.api.member.PhoneCipher;
+import com.rizenfood.api.member.PhoneHasher;
 import com.rizenfood.api.order.dto.AdminOrderDtos;
 import com.rizenfood.api.order.dto.OrderDtos;
 import com.rizenfood.api.payment.Payment;
@@ -63,6 +65,8 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final IslandZipService islandZipService;
     private final SiteSettingRepository siteSettingRepository;
+    private final CouponService couponService;
+    private final PhoneHasher phoneHasher;
 
     public OrderService(CartItemRepository cartItemRepository,
                         ProductRepository productRepository,
@@ -78,7 +82,9 @@ public class OrderService {
                         PaymentGateway paymentGateway,
                         CartRepository cartRepository,
                         IslandZipService islandZipService,
-                        SiteSettingRepository siteSettingRepository) {
+                        SiteSettingRepository siteSettingRepository,
+                        CouponService couponService,
+                        PhoneHasher phoneHasher) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -94,6 +100,54 @@ public class OrderService {
         this.cartRepository = cartRepository;
         this.islandZipService = islandZipService;
         this.siteSettingRepository = siteSettingRepository;
+        this.couponService = couponService;
+        this.phoneHasher = phoneHasher;
+    }
+
+    // ── 할인코드 미리보기 ──────────────────────────────────────
+
+    /**
+     * 결제 화면에서 코드를 눌렀을 때, 적용하면 얼마가 깎이는지 미리 보여준다.
+     * 수량을 잡지 않는다 — 실제 사용은 주문을 만들 때 한 번 더 검증하고 잡는다.
+     *
+     * 배송비는 도서산간을 빼고 계산한다. 이 시점엔 주소가 아직 없을 수 있어서다.
+     * 최종 금액은 주문 생성에서 다시 계산하므로 여기 값은 안내용이다.
+     */
+    @Transactional(readOnly = true)
+    public com.rizenfood.api.coupon.CouponDtos.PreviewResponse previewCoupon(
+            Long cartId, Long memberId, com.rizenfood.api.coupon.CouponDtos.PreviewRequest req) {
+
+        int itemsAmount = orderableItemsAmount(cartId);
+        if (itemsAmount <= 0) {
+            throw new IllegalArgumentException("주문할 수 있는 상품이 없습니다.");
+        }
+        ShippingPolicy policy = shippingPolicyRepository
+                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
+        int shippingFee = policy != null ? policy.feeFor(itemsAmount, false) : 0;
+
+        String phoneHash = phoneHasher.hash(req.ordererPhone());
+        CouponService.Applied applied =
+                couponService.check(req.code(), itemsAmount, memberId, phoneHash);
+
+        return new com.rizenfood.api.coupon.CouponDtos.PreviewResponse(
+                applied.code(), applied.name(), itemsAmount, shippingFee,
+                applied.discount(), itemsAmount + shippingFee - applied.discount());
+    }
+
+    /** 지금 주문 가능한 항목만 골라 더한 금액. 주문 생성과 같은 기준으로 본다. */
+    private int orderableItemsAmount(Long cartId) {
+        int sum = 0;
+        for (CartItem ci : cartItemRepository.findByCartIdOrderByAddedAtAsc(cartId)) {
+            Product product = ci.getProduct();
+            ProductOption option = ci.getOption();
+            boolean visible = product.isVisible() && (option == null || option.isVisible());
+            int stock = option != null ? option.getStock() : product.getStock();
+            if (!visible || stock <= 0 || stock < ci.getQuantity()) {
+                continue;
+            }
+            sum += effectiveUnitPrice(product, option) * ci.getQuantity();
+        }
+        return sum;
     }
 
     /** 재고 부족으로 주문을 만들 수 없을 때. 409 로 매핑된다. */
@@ -146,7 +200,20 @@ public class OrderService {
         // 도서산간 추가 배송비는 받는 곳 우편번호로 서버가 판정한다 (클라이언트 값 안 받음).
         boolean island = islandZipService.isIsland(req.zipcode());
         int shippingFee = policy != null ? policy.feeFor(itemsAmount, island) : 0;
-        int discount = 0; // 쿠폰 미구현
+
+        // 할인코드. 화면이 보낸 할인액은 받지 않는다 — 코드만 받고 서버가 다시 계산한다.
+        // 쓸 수 없는 코드면 RejectedException 이 올라가 주문 자체가 만들어지지 않는다.
+        // (이 시점에 재고는 이미 잡혔지만, 예외로 트랜잭션이 롤백되며 같이 되돌아간다.)
+        String ordererPhoneHash = phoneHasher.hash(req.ordererPhone());
+        int discount = 0;
+        Long couponId = null;
+        if (CouponService.normalize(req.couponCode()) != null) {
+            CouponService.Applied applied =
+                    couponService.use(req.couponCode(), itemsAmount, memberId, ordererPhoneHash);
+            discount = applied.discount();
+            couponId = applied.couponId();
+        }
+
         int total = itemsAmount + shippingFee - discount;
 
         // 주문 생성 (스냅샷 + 암호화)
@@ -164,6 +231,8 @@ public class OrderService {
         order.setItemsAmount(itemsAmount);
         order.setShippingFee(shippingFee);
         order.setDiscountAmount(discount);
+        order.setCouponId(couponId);
+        order.setOrdererPhoneHash(ordererPhoneHash);
         order.setTotalAmount(total);
 
         for (Line ln : lines) {
@@ -401,6 +470,7 @@ public class OrderService {
     /** 미결제 주문 정리: 재고를 되돌리고 주문은 취소, 결제는 실패로 남긴다. */
     private void releasePending(Order order, Payment payment, String reason) {
         restock(order);
+        couponService.release(order.getCouponId());
         order.markCancelled();
         if (payment != null) {
             payment.markFailed(reason);

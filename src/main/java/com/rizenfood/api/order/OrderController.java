@@ -136,6 +136,20 @@ public class OrderController {
         return claimService.listForOrder(orderNo, me != null ? me.id() : null);
     }
 
+    /**
+     * 할인코드를 적용하면 얼마가 깎이는지 미리 본다.
+     * 여기서는 수량을 잡지 않는다 — 실제 사용은 주문을 만들 때 다시 검증하고 잡는다.
+     */
+    @PostMapping("/coupon-preview")
+    public com.rizenfood.api.coupon.CouponDtos.PreviewResponse previewCoupon(
+            @Valid @RequestBody com.rizenfood.api.coupon.CouponDtos.PreviewRequest req,
+            @AuthenticationPrincipal JwtTokenProvider.AuthenticatedMember me,
+            HttpServletRequest request) {
+
+        Long memberId = me != null ? me.id() : null;
+        return orderService.previewCoupon(resolveCartId(me, request), memberId, req);
+    }
+
     /** 주문에 쓸 장바구니 id. 회원은 자기 장바구니, 게스트는 쿠키의 장바구니. */
     private Long resolveCartId(JwtTokenProvider.AuthenticatedMember me, HttpServletRequest request) {
         if (me != null) {

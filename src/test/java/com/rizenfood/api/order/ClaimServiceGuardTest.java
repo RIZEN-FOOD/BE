@@ -46,7 +46,8 @@ class ClaimServiceGuardTest {
         optionRepository = mock(ProductOptionRepository.class);
         paymentGateway = mock(PaymentGateway.class);
         service = new ClaimService(orderRepository, claimRepository, mock(PaymentRepository.class),
-                productRepository, optionRepository, mock(StockLedgerRepository.class), paymentGateway);
+                productRepository, optionRepository, mock(StockLedgerRepository.class), paymentGateway,
+                mock(com.rizenfood.api.coupon.CouponService.class));
     }
 
     private Order order(String status) {

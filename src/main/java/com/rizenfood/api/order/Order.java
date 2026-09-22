@@ -82,6 +82,21 @@ public class Order {
     @Column(name = "discount_amount", nullable = false)
     private int discountAmount;
 
+    /**
+     * 적용된 할인코드. 없으면 null.
+     * 코드가 지워져도 주문은 남아야 하므로 DB 는 ON DELETE SET NULL 이다 (V33).
+     */
+    @Column(name = "coupon_id")
+    private Long couponId;
+
+    /**
+     * 주문자 번호의 조회용 해시 (PhoneHasher).
+     * 암호문은 매번 달라 검색이 안 되므로, 할인코드 "1인 n회"를 비회원까지 세려고 둔다.
+     * ★ 이 값으로 사람을 찾을 수 있다. 어떤 응답에도 넣지 마라.
+     */
+    @Column(name = "orderer_phone_hash", length = 64)
+    private String ordererPhoneHash;
+
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
 
@@ -167,6 +182,10 @@ public class Order {
     public void setShippingFee(int v) { this.shippingFee = v; }
     public int getDiscountAmount() { return discountAmount; }
     public void setDiscountAmount(int v) { this.discountAmount = v; }
+    public Long getCouponId() { return couponId; }
+    public void setCouponId(Long v) { this.couponId = v; }
+    public String getOrdererPhoneHash() { return ordererPhoneHash; }
+    public void setOrdererPhoneHash(String v) { this.ordererPhoneHash = v; }
     public int getTotalAmount() { return totalAmount; }
     public void setTotalAmount(int v) { this.totalAmount = v; }
     public Instant getOrderedAt() { return orderedAt; }

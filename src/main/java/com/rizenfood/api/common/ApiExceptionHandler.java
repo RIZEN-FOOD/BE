@@ -58,6 +58,17 @@ public class ApiExceptionHandler {
                 .body(Map.of("error", "PAYMENT_UNAVAILABLE", "message", e.getMessage()));
     }
 
+    /**
+     * 쓸 수 없는 할인코드. 사유를 그대로 손님에게 보여준다 —
+     * "안 됩니다"만 돌려주면 기간이 끝난 건지 금액이 모자란 건지 몰라 문의로 온다.
+     */
+    @ExceptionHandler(com.rizenfood.api.coupon.CouponService.RejectedException.class)
+    public ResponseEntity<Map<String, String>> handleCouponRejected(
+            com.rizenfood.api.coupon.CouponService.RejectedException e) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "COUPON_REJECTED", "message", e.getMessage()));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.badRequest()

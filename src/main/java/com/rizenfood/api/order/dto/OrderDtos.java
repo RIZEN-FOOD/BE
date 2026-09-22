@@ -39,7 +39,13 @@ public final class OrderDtos {
             @NotBlank(message = "주소를 입력해 주세요.")
             @Size(max = 300) String addr1,
             @Size(max = 300) String addr2,
-            @Size(max = 300) String deliveryMemo) {
+            @Size(max = 300) String deliveryMemo,
+
+            /**
+             * 할인코드. 비워도 된다.
+             * ★ 할인 금액은 받지 않는다. 코드만 받고 서버가 다시 계산한다.
+             */
+            @Size(max = 60) String couponCode) {
     }
 
     /** 결제(모의) 요청. 금액은 서버가 정하므로 받지 않는다. */
