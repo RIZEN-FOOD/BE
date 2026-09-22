@@ -121,13 +121,16 @@ public class OrderService {
         if (itemsAmount <= 0) {
             throw new IllegalArgumentException("주문할 수 있는 상품이 없습니다.");
         }
-        ShippingPolicy policy = shippingPolicyRepository
-                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        int shippingFee = policy != null ? policy.feeFor(itemsAmount, false) : 0;
-
         String phoneHash = phoneHasher.hash(req.ordererPhone());
         CouponService.Applied applied =
                 couponService.check(req.code(), itemsAmount, memberId, phoneHash);
+
+        // 배송비는 할인을 뺀 금액으로 정한다. 무료배송 문턱 아래로 내려가면 다시 붙는다.
+        ShippingPolicy policy = shippingPolicyRepository
+                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
+        int shippingFee = policy != null
+                ? policy.feeFor(itemsAmount, itemsAmount - applied.discount(), false)
+                : 0;
 
         return new com.rizenfood.api.coupon.CouponDtos.PreviewResponse(
                 applied.code(), applied.name(), itemsAmount, shippingFee,
@@ -195,12 +198,6 @@ public class OrderService {
 
         // 금액 계산
         int itemsAmount = lines.stream().mapToInt(l -> l.unitPrice * l.qty).sum();
-        ShippingPolicy policy = shippingPolicyRepository
-                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        // 도서산간 추가 배송비는 받는 곳 우편번호로 서버가 판정한다 (클라이언트 값 안 받음).
-        boolean island = islandZipService.isIsland(req.zipcode());
-        int shippingFee = policy != null ? policy.feeFor(itemsAmount, island) : 0;
-
         // 할인코드. 화면이 보낸 할인액은 받지 않는다 — 코드만 받고 서버가 다시 계산한다.
         // 쓸 수 없는 코드면 RejectedException 이 올라가 주문 자체가 만들어지지 않는다.
         // (이 시점에 재고는 이미 잡혔지만, 예외로 트랜잭션이 롤백되며 같이 되돌아간다.)
@@ -213,6 +210,15 @@ public class OrderService {
             discount = applied.discount();
             couponId = applied.couponId();
         }
+
+        // 배송비는 할인을 뺀 뒤 금액으로 정한다 — 코드로 무료배송 문턱을 넘기지 못하게.
+        // 도서산간 추가 배송비는 받는 곳 우편번호로 서버가 판정한다 (클라이언트 값 안 받음).
+        ShippingPolicy policy = shippingPolicyRepository
+                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
+        boolean island = islandZipService.isIsland(req.zipcode());
+        int shippingFee = policy != null
+                ? policy.feeFor(itemsAmount, itemsAmount - discount, island)
+                : 0;
 
         int total = itemsAmount + shippingFee - discount;
 
@@ -470,11 +476,13 @@ public class OrderService {
     /** 미결제 주문 정리: 재고를 되돌리고 주문은 취소, 결제는 실패로 남긴다. */
     private void releasePending(Order order, Payment payment, String reason) {
         restock(order);
-        couponService.release(order.getCouponId());
         order.markCancelled();
         if (payment != null) {
             payment.markFailed(reason);
         }
+        // ★ 쿠폰 반환은 반드시 맨 마지막이다. giveBack 이 끝나면 영속성 컨텍스트가 비워져
+        //   이 뒤에 엔티티를 고쳐도 저장되지 않는다 (CouponRepository 주석 참고).
+        couponService.release(order.getCouponId());
     }
 
     private void restock(Order order) {

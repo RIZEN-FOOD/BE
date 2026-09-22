@@ -129,6 +129,11 @@ public class ClaimService {
         if (refund != null && (refund <= 0 || refund > order.getTotalAmount())) {
             throw new IllegalArgumentException("환불 금액은 1원 이상, 결제 금액 이하여야 합니다.");
         }
+        // 할인코드를 썼던 주문이면 한 장을 되돌린다. 취소·환불은 "안 산 것"으로 센다.
+        // ★ 실제 반환은 이 메서드 맨 끝에서 한다. giveBack 이 끝나면 영속성 컨텍스트가 비워져
+        //   그 뒤에 고친 주문·요청 상태가 저장되지 않는다 (CouponRepository 주석 참고).
+        Long couponToRelease = null;
+
         // 취소·반품을 완료 처리하면 재고를 되돌리고 주문·결제를 정리한다.
         if (target == OrderClaim.Status.COMPLETED
                 && (claim.getType().equals("CANCEL") || claim.getType().equals("RETURN"))) {
@@ -137,8 +142,7 @@ public class ClaimService {
                 throw new IllegalArgumentException("이미 취소·환불이 끝난 주문입니다.");
             }
             restock(order);
-            // 할인코드를 썼던 주문이면 한 장을 되돌린다. 취소·환불은 "안 산 것"으로 센다.
-            couponService.release(order.getCouponId());
+            couponToRelease = order.getCouponId();
             String nextOrderStatus = claim.getType().equals("CANCEL") ? "CANCELLED" : "REFUNDED";
             order.applyStatus(nextOrderStatus);
             if (refund == null) {
@@ -153,7 +157,11 @@ public class ClaimService {
         }
 
         claim.process(target, blankToNull(req.adminMemo()), refund);
-        return toView(claim, order.getOrderNo());
+        ClaimDtos.View view = toView(claim, order.getOrderNo());
+
+        // 엔티티 변경이 모두 끝난 뒤에 쿠폰을 되돌린다 (위 couponToRelease 주석 참고).
+        couponService.release(couponToRelease);
+        return view;
     }
 
     // ── 내부 ──────────────────────────────────────────────────

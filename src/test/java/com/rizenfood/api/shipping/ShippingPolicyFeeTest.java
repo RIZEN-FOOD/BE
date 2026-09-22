@@ -71,4 +71,38 @@ class ShippingPolicyFeeTest {
     void islandZeroWhenEmpty() {
         assertThat(islandPolicy().feeFor(0, true)).isZero();
     }
+
+    // ── 할인코드를 뺀 뒤의 배송비 (2026-09-22) ───────────────────
+
+    @Test
+    @DisplayName("할인 뒤 금액이 무료배송 금액 아래로 내려가면 배송비를 받는다")
+    void feeReturnsWhenDiscountDropsBelowThreshold() {
+        // 51,600원어치를 담아 무료였지만, 5,000원을 깎으면 46,600원이라 다시 배송비가 붙는다
+        assertThat(islandPolicy().feeFor(51_600, 46_600, false)).isEqualTo(3500);
+    }
+
+    @Test
+    @DisplayName("할인을 빼도 무료배송 금액 이상이면 그대로 무료")
+    void stillFreeWhenDiscountedAmountReachesThreshold() {
+        assertThat(islandPolicy().feeFor(60_000, 55_000, false)).isZero();
+    }
+
+    @Test
+    @DisplayName("코드로 전액이 깎여도 물건은 나가므로 배송비는 받는다")
+    void feeChargedEvenWhenFullyDiscounted() {
+        assertThat(islandPolicy().feeFor(30_000, 0, false)).isEqualTo(3500);
+    }
+
+    @Test
+    @DisplayName("빈 장바구니는 할인 기준으로 봐도 0")
+    void zeroWhenEmptyEvenWithDiscount() {
+        assertThat(islandPolicy().feeFor(0, 0, true)).isZero();
+    }
+
+    @Test
+    @DisplayName("도서산간 추가분은 할인과 무관하게 붙는다")
+    void islandExtraIndependentOfDiscount() {
+        assertThat(islandPolicy().feeFor(60_000, 55_000, true)).isEqualTo(3000);
+        assertThat(islandPolicy().feeFor(51_600, 46_600, true)).isEqualTo(6500);
+    }
 }

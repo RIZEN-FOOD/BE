@@ -171,6 +171,47 @@ class CouponServiceTest {
                 .isZero();
     }
 
+    // ── 수량 UPDATE 와 같은 트랜잭션의 다른 변경 (2026-09-22 회귀) ──
+
+    /**
+     * take·giveBack 은 끝나고 영속성 컨텍스트를 비운다(clearAutomatically).
+     * 그래서 <b>앞</b>에서 고친 값은 살아남고(flushAutomatically), <b>뒤</b>에서 고친 값은 사라진다.
+     *
+     * 이걸 모르고 쿠폰 반환을 주문 상태 변경보다 먼저 불렀다가,
+     * 주문 취소에서 재고·쿠폰은 돌아왔는데 주문만 «결제 대기» 로 남았다.
+     * 손님은 취소한 주문을 결제 대기로 보고, 그 주문이 1인 한도를 계속 차지해
+     * 같은 코드를 다시 쓸 수 없었다. 순서가 규칙이라 테스트로 못 박는다.
+     */
+    @Test
+    @Transactional
+    @DisplayName("수량 반환 앞에서 고친 값은 함께 저장된다 — 상태 변경을 먼저 하라")
+    void changesBeforeGiveBackAreFlushed() {
+        made = save(coupon(b -> b.setTotalQuantity(5)));
+        couponRepository.take(made);
+
+        Coupon managed = couponRepository.findById(made).orElseThrow();
+        managed.setName("반환 앞에서 바꾼 이름");
+        couponService.release(made);
+
+        assertThat(jdbc.queryForObject("SELECT name FROM coupon WHERE id = ?", String.class, made))
+                .as("giveBack 앞의 변경은 flushAutomatically 로 먼저 저장된다")
+                .isEqualTo("반환 앞에서 바꾼 이름");
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("수량 차감 앞에서 고친 값도 함께 저장된다")
+    void changesBeforeTakeAreFlushed() {
+        made = save(coupon(b -> b.setTotalQuantity(5)));
+
+        Coupon managed = couponRepository.findById(made).orElseThrow();
+        managed.setName("차감 앞에서 바꾼 이름");
+        couponRepository.take(made);
+
+        assertThat(jdbc.queryForObject("SELECT name FROM coupon WHERE id = ?", String.class, made))
+                .isEqualTo("차감 앞에서 바꾼 이름");
+    }
+
     // ── 도우미 ────────────────────────────────────────────────
 
     private interface Tweak {

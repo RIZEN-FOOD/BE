@@ -71,6 +71,27 @@ public class ShippingPolicy {
     }
 
     /**
+     * 할인코드를 뺀 뒤의 금액으로 정하는 배송비.
+     *
+     * 주문이 있는지는 <b>할인 전</b> 상품금액으로 보고(0 이면 빈 장바구니라 배송비도 0),
+     * 무료배송 문턱은 <b>실제로 결제하는</b> 금액으로 본다.
+     * 5만원어치를 담아도 코드로 5천원을 깎으면 45,000원이라 배송비가 붙는다 —
+     * 코드로 무료배송 기준을 넘기는 길을 열어두지 않는다. (2026-09-22 결정)
+     *
+     * 코드로 전액이 깎여도(결제 0원) 물건은 나가므로 배송비는 그대로 매긴다.
+     */
+    public int feeFor(int itemsAmount, int amountAfterDiscount, boolean island) {
+        if (itemsAmount <= 0) {
+            return 0;
+        }
+        int fee = (freeThreshold != null && amountAfterDiscount >= freeThreshold) ? 0 : baseFee;
+        if (island) {
+            fee += islandExtraFee;
+        }
+        return fee;
+    }
+
+    /**
      * 관리자 수정. 금액 항목만 바꾼다. 활성 여부(visible)는 건드리지 않는다
      * — 유일한 활성 정책이 사라져 결제 배송비가 0으로 새는 것을 막기 위해서다.
      */
