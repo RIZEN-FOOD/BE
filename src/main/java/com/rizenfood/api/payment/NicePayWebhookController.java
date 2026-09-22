@@ -61,7 +61,13 @@ public class NicePayWebhookController {
         if (!gateway.verifyResultSignature(tid, amount, ediDate, signature)) {
             // 서명이 맞지 않으면 우리가 아는 거래가 아니다. 아무것도 하지 않는다.
             // 그래도 OK 로 받는다 — 재전송을 받아봐야 결과가 같고, 로그만 쌓인다.
-            log.error("나이스 웹훅 서명 불일치 — 처리하지 않는다: order={} tid={}", orderId, tid);
+            //
+            // ★ 무엇이 어긋났는지 남긴다. 서명은 해시라 앞 8자만 적어도 같은지 다른지 판단된다
+            //   (시크릿 키는 절대 남기지 않는다). 나이스 콘솔의 테스트 전문은 서명이 비어 오기도 한다.
+            log.error("나이스 웹훅 서명 불일치 — 처리하지 않는다: order={} tid={} amount='{}' ediDate='{}' "
+                            + "받은서명={} 계산한서명={}",
+                    orderId, tid, amount, ediDate,
+                    head(signature), head(gateway.expectedResultSignature(tid, amount, ediDate)));
             return ack();
         }
 
@@ -81,6 +87,14 @@ public class NicePayWebhookController {
             default -> log.info("나이스 웹훅: order={} 상태={} (처리 대상 아님)", orderId, status);
         }
         return ack();
+    }
+
+    /** 해시 앞부분만. 같은지 다른지 보기에 충분하고, 전체를 남길 이유가 없다. */
+    private static String head(String hash) {
+        if (hash == null || hash.isBlank()) {
+            return "(없음)";
+        }
+        return hash.length() <= 8 ? hash : hash.substring(0, 8) + "…";
     }
 
     /** 나이스가 요구하는 형식 — text/html 로 "OK". */

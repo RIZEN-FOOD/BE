@@ -232,6 +232,11 @@ public class NicePayGateway implements PaymentGateway {
         }
     }
 
+    /** 우리가 계산한 결과 서명. 어긋났을 때 무엇이 다른지 보려고 컨트롤러가 앞부분만 로그에 쓴다. */
+    String expectedResultSignature(String tid, String amount, String ediDate) {
+        return sha256Hex(tid + amount + ediDate + secretKey);
+    }
+
     /**
      * 결과 통보(웹훅·승인 응답) 서명 검증.
      * 생성규칙 : hex(sha256(tid + amount + ediDate + SecretKey))
