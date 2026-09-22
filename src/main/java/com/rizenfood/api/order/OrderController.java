@@ -66,6 +66,18 @@ public class OrderController {
     }
 
     /**
+     * 비회원 주문 조회.
+     *
+     * 결제 후 받은 링크를 잃은 손님이 스스로 찾을 수 있게 한다.
+     * <b>주문번호와 받는 분 연락처가 모두 맞아야</b> 열어준다 — 주문번호만으로는 열지 않는다.
+     * 틀렸을 때와 없을 때를 같은 메시지로 답해, 그 주문번호의 존재 여부도 알려주지 않는다.
+     */
+    @PostMapping("/lookup")
+    public OrderDtos.OrderView lookup(@Valid @RequestBody OrderDtos.GuestLookupRequest req) {
+        return orderService.findForGuest(req.orderNo().trim(), req.receiverPhone());
+    }
+
+    /**
      * 결제 확정. 브라우저가 PG 결제창을 마친 뒤 호출한다.
      * 서버가 PG 에 직접 조회해 상태·금액을 검증한 뒤에만 확정하고, 그때 장바구니를 비운다.
      */

@@ -64,6 +64,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
             new Rule("oauth-complete", "POST", "/api/auth/oauth/complete", 10, Duration.ofMinutes(1)),
             new Rule("order-create", "POST", "/api/orders", 10, Duration.ofMinutes(1)),
             new Rule("order-lookup", "GET", "/api/orders/*", 60, Duration.ofMinutes(1)),
+            // 비회원 주문 조회. 주문번호+연락처를 무작위로 넣어보는 것을 막는다.
+            new Rule("guest-order-lookup", "POST", "/api/orders/lookup", 10, Duration.ofMinutes(10)),
             new Rule("order-pay", "POST", "/api/orders/*/pay", 20, Duration.ofMinutes(1)),
             new Rule("order-cancel-pending", "POST", "/api/orders/*/cancel-pending", 20, Duration.ofMinutes(1)),
             new Rule("order-claim", "POST", "/api/orders/*/claims", 10, Duration.ofMinutes(10)),

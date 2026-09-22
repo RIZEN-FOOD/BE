@@ -98,6 +98,20 @@ public final class OrderDtos {
             Instant deliveredAt) {
     }
 
+    /**
+     * 비회원 주문 조회 요청.
+     *
+     * 주문번호만으로는 열어주지 않는다 — 받는 분 연락처가 함께 맞아야 한다.
+     * 주문번호가 이미 추측 불가능하지만, 링크가 새어나갔을 때를 한 겹 더 막는다.
+     */
+    public record GuestLookupRequest(
+            @NotBlank(message = "주문번호를 입력해 주세요.")
+            @Size(max = 40) String orderNo,
+            @NotBlank(message = "받는 분 연락처를 입력해 주세요.")
+            @Pattern(regexp = "^01[016789]-?\\d{3,4}-?\\d{4}$", message = "연락처 형식이 올바르지 않습니다.")
+            String receiverPhone) {
+    }
+
     /** 주문 목록 한 줄(마이페이지). */
     public record OrderSummary(
             String orderNo,

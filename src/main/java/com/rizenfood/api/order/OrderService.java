@@ -465,6 +465,30 @@ public class OrderService {
      * 회원 주문이면 memberId 가 일치해야 한다. 비회원 주문은 주문번호 자체가
      * 추측 불가능한 비밀이므로 번호를 아는 사람에게만 열어준다.
      */
+    /**
+     * 비회원 주문 조회 — 주문번호 + 받는 분 연락처가 모두 맞아야 열어준다.
+     *
+     * 비회원은 결제 후 받은 링크를 잃으면 주문을 볼 방법이 없었다. 그렇다고 주문번호만으로
+     * 열어주면 링크가 새어나갔을 때 그대로 남에게 보인다. 그래서 연락처를 한 겹 더 요구한다.
+     *
+     * ★ 연락처는 암호화돼 저장되므로 복호화해 <b>숫자만</b> 비교한다(하이픈 유무와 무관하게).
+     * ★ 틀렸을 때와 없을 때를 같은 메시지로 답한다 — "그 주문번호는 있다"는 사실도 알려주지 않는다.
+     * ★ 회원 주문은 이 경로로 열지 않는다. 로그인해서 마이페이지에서 봐야 한다.
+     */
+    @Transactional(readOnly = true)
+    public OrderDtos.OrderView findForGuest(String orderNo, String receiverPhone) {
+        Order order = orderRepository.findByOrderNo(orderNo).orElse(null);
+        if (order == null || order.getMemberId() != null) {
+            throw new NotFoundException("주문번호와 연락처를 다시 확인해 주세요.");
+        }
+        String saved = digits(decryptSafe(order.getReceiverPhoneEncrypted()));
+        String asked = digits(receiverPhone);
+        if (saved == null || saved.isBlank() || !saved.equals(asked)) {
+            throw new NotFoundException("주문번호와 연락처를 다시 확인해 주세요.");
+        }
+        return toView(order);
+    }
+
     private Order loadOwned(String orderNo, Long memberId) {
         Order order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new NotFoundException("주문을 찾을 수 없습니다."));
