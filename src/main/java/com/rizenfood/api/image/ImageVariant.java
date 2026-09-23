@@ -27,7 +27,10 @@ public enum ImageVariant {
         return suffix;
     }
 
-    /** 가로·세로 중 긴 변의 최대 길이. 비율은 유지한다. */
+    /**
+     * 가로의 최대 길이. 세로는 이 값의 8배까지(ImageProcessor). 비율은 유지한다.
+     * 세로로 긴 상세페이지 이미지가 가로 폭을 잃지 않게 하려고 가로 기준이다 (2026-09-23).
+     */
     public int maxEdge() {
         return maxEdge;
     }

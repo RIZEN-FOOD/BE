@@ -167,4 +167,39 @@ class ImagePipelineSecurityTest {
         assertThat(large.getWidth()).isEqualTo(200);
         assertThat(large.getHeight()).isEqualTo(150);
     }
+
+    // ── 4. 세로로 긴 상세페이지 이미지 (2026-09-23) ─────────────
+
+    @Test
+    @DisplayName("세로로 긴 상세 이미지는 가로 폭을 잃지 않는다")
+    void 세로로_긴_이미지는_가로를_기준으로_줄인다() throws Exception {
+        // 운영에서 860×6,542 상세 이미지가 263×2,000 으로 줄어 뭉개졌던 사례
+        byte[] tall = realImage("jpeg", 860, 6500);
+        validator.validate(tall, "detail.jpg", "image/jpeg");
+
+        ImageProcessor.Result result = processor.process(tall);
+
+        BufferedImage large = ImageIO.read(
+                new java.io.ByteArrayInputStream(result.variants().get(ImageVariant.LARGE)));
+        assertThat(large.getWidth()).as("가로 860 은 상한(2000) 안이라 그대로여야 한다").isEqualTo(860);
+        assertThat(large.getHeight()).isEqualTo(6500);
+
+        BufferedImage medium = ImageIO.read(
+                new java.io.ByteArrayInputStream(result.variants().get(ImageVariant.MEDIUM)));
+        assertThat(medium.getWidth()).isEqualTo(860);
+    }
+
+    @Test
+    @DisplayName("가로가 상한을 넘는 긴 이미지는 가로를 상한에 맞추고 비율을 지킨다")
+    void 가로가_큰_긴_이미지는_가로_상한으로_줄인다() throws Exception {
+        byte[] tall = realImage("jpeg", 2200, 8000);
+        validator.validate(tall, "detail.jpg", "image/jpeg");
+
+        ImageProcessor.Result result = processor.process(tall);
+
+        BufferedImage large = ImageIO.read(
+                new java.io.ByteArrayInputStream(result.variants().get(ImageVariant.LARGE)));
+        assertThat(large.getWidth()).isEqualTo(ImageVariant.LARGE.maxEdge());
+        assertThat(large.getHeight()).isBetween(7200, 7300); // 8000 × (2000/2200)
+    }
 }

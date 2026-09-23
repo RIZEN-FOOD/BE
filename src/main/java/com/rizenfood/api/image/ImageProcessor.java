@@ -105,15 +105,27 @@ public class ImageProcessor {
     }
 
     /**
-     * 긴 변을 maxEdge 에 맞춘다. 비율은 유지하고, 원본보다 키우지는 않는다.
+     * WebP 한 변의 상한(규격상 16,383). 이보다 긴 변은 인코더가 거부한다.
+     */
+    private static final int WEBP_MAX_SIDE = 16_000;
+
+    /**
+     * 가로를 maxEdge 에 맞춘다. 세로는 그 8배까지 허용한다. 비율은 유지하고, 원본보다 키우지는 않는다.
+     *
+     * 2026-09-23 이전에는 «긴 변 = maxEdge» 였다. 사진에는 맞지만 상세페이지 이미지는
+     * 세로로 아주 길어서(860×6,500 같은), 긴 변인 세로를 2,000 으로 줄이니 가로가 263px 이 됐고
+     * 화면에서 두 배로 늘려 그리며 뭉개졌다. 사람이 보는 해상도는 가로가 정하므로 가로를 기준으로 잡는다.
+     * 가로 사진은 전과 결과가 같고, 세로 사진은 조금 더 크게 남는다(2:3 사진이면 2000×3000).
      */
     private BufferedImage resize(BufferedImage source, int maxEdge) {
-        int longEdge = Math.max(source.getWidth(), source.getHeight());
-        if (longEdge <= maxEdge) {
+        int maxHeight = Math.min(maxEdge * 8, WEBP_MAX_SIDE);
+        int w = source.getWidth();
+        int h = source.getHeight();
+        if (w <= maxEdge && h <= maxHeight) {
             return source;
         }
         try {
-            return Thumbnails.of(source).size(maxEdge, maxEdge).keepAspectRatio(true).asBufferedImage();
+            return Thumbnails.of(source).size(maxEdge, maxHeight).keepAspectRatio(true).asBufferedImage();
         } catch (IOException e) {
             throw new UncheckedIOException("이미지 크기 변경에 실패했다", e);
         }
