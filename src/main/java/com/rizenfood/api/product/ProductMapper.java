@@ -56,6 +56,7 @@ public class ProductMapper {
         String subcopy = notBlank(p.getHeroSubcopy()) ? p.getHeroSubcopy() : p.getSubtitle();
         return new ProductDtos.HeroSlide(
                 p.getId(), p.getSlug(), headline, subcopy,
+                p.getPrice(), p.getDiscountPrice(),
                 p.effectivePrice(), computeSoldOut(p),
                 p.getHeroColor(),
                 variantUrl(heroKey, ImageVariant.MEDIUM),

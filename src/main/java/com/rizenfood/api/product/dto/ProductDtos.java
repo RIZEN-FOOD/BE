@@ -46,6 +46,10 @@ public final class ProductDtos {
             String slug,
             String nameKo,       // 배너 메인 문구(hero_headline) 우선, 없으면 상품명
             String subtitle,     // 배너 서브 문구(hero_subcopy) 우선, 없으면 부제
+            /** 정가. 할인 중이면 화면이 이 값에 취소선을 긋고 옆에 effectivePrice 를 둔다. */
+            int price,
+            /** 할인가. 없으면 null — 그때 effectivePrice == price. */
+            Integer discountPrice,
             int effectivePrice,
             boolean soldOut,
             String heroColor,
