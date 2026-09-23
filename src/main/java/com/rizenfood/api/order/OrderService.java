@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.rizenfood.api.cart.CartItem;
 import com.rizenfood.api.cart.CartItemRepository;
 import com.rizenfood.api.cart.CartRepository;
+import com.rizenfood.api.cart.dto.CartDtos;
 import com.rizenfood.api.common.NotFoundException;
 import com.rizenfood.api.image.ImageService;
 import com.rizenfood.api.coupon.CouponService;
@@ -117,7 +118,10 @@ public class OrderService {
     public com.rizenfood.api.coupon.CouponDtos.PreviewResponse previewCoupon(
             Long cartId, Long memberId, com.rizenfood.api.coupon.CouponDtos.PreviewRequest req) {
 
-        int itemsAmount = orderableItemsAmount(cartId);
+        // 바로구매면 요청에 실린 줄로, 아니면 장바구니로 금액을 본다. 둘 다 가격은 상품 테이블에서 읽는다.
+        int itemsAmount = req.isDirect()
+                ? amountOf(linesFromDirect(req.items()))
+                : orderableItemsAmount(cartId);
         if (itemsAmount <= 0) {
             throw new IllegalArgumentException("주문할 수 있는 상품이 없습니다.");
         }
@@ -160,6 +164,7 @@ public class OrderService {
 
     // ── 주문 생성 ─────────────────────────────────────────────
 
+    /** 장바구니로 주문한다. 결제가 확정되면 주문한 항목을 장바구니에서 뺀다. */
     @Transactional
     public OrderDtos.OrderView createFromCart(Long cartId, Long memberId,
                                               OrderDtos.CreateRequest req) {
@@ -167,24 +172,144 @@ public class OrderService {
         if (cartItems.isEmpty()) {
             throw new IllegalArgumentException("장바구니가 비어 있습니다.");
         }
+        return place(linesFromCart(cartItems), memberId, req, true);
+    }
 
-        // 서버가 상품 테이블을 다시 읽어 금액을 계산하고, 주문 가능한 항목만 추린다.
+    /**
+     * «바로 구매» — 장바구니를 거치지 않고 요청에 실린 줄로만 주문한다 (2026-09-23).
+     * 가격은 여기서도 상품 테이블에서 다시 읽는다. 장바구니에 담긴 것은 건드리지 않는다.
+     */
+    @Transactional
+    public OrderDtos.OrderView createDirect(Long memberId, OrderDtos.CreateRequest req) {
+        return place(linesFromDirect(req.items()), memberId, req, false);
+    }
+
+    /**
+     * «바로 구매» 견적 — 주문서가 보여줄 상품·금액. 장바구니 화면과 같은 모양(CartView)으로 준다.
+     * 못 사는 항목은 빼지 않고 사유를 달아 보낸다. 수량을 잡거나 무엇을 바꾸지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public CartDtos.CartView quote(List<OrderDtos.DirectItem> items) {
+        List<CartDtos.ItemView> views = new ArrayList<>();
+        int itemsAmount = 0;
+        int totalQuantity = 0;
+        boolean hasUnavailable = false;
+
+        long rowNo = 0;
+        for (OrderDtos.DirectItem it : items) {
+            Product product = productRepository.findById(it.productId())
+                    .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+            ProductOption option = pickOption(product, it.optionId());
+            int unitPrice = effectiveUnitPrice(product, option);
+            int lineAmount = unitPrice * it.quantity();
+            String reason = unavailableReason(product, option, it.quantity());
+            boolean available = reason == null;
+            if (available) {
+                itemsAmount += lineAmount;
+                totalQuantity += it.quantity();
+            } else {
+                hasUnavailable = true;
+            }
+            views.add(new CartDtos.ItemView(
+                    ++rowNo, // 장바구니 항목 id 자리. 화면이 key 로만 쓴다
+                    product.getId(), product.getSlug(), product.getNameKo(),
+                    option != null ? option.getId() : null,
+                    option != null ? option.getName() : null,
+                    thumbUrl(product.getThumbnailKey()),
+                    unitPrice, it.quantity(), lineAmount,
+                    available,
+                    option != null ? option.getStock() : product.getStock(),
+                    reason));
+        }
+
+        ShippingPolicy policy = shippingPolicyRepository
+                .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
+        int shippingFee = policy != null ? policy.feeFor(itemsAmount) : 0;
+        Integer threshold = policy != null ? policy.getFreeThreshold() : null;
+        int freeRemaining = (threshold != null && itemsAmount > 0 && itemsAmount < threshold)
+                ? threshold - itemsAmount : 0;
+
+        return new CartDtos.CartView(views, totalQuantity, itemsAmount, shippingFee,
+                threshold, freeRemaining, itemsAmount + shippingFee, hasUnavailable);
+    }
+
+    /** 주문 가능한 장바구니 항목만 줄로 만든다. 못 사는 항목은 조용히 뺀다 — 장바구니 화면이 이미 알려줬다. */
+    private List<Line> linesFromCart(List<CartItem> cartItems) {
         List<Line> lines = new ArrayList<>();
         for (CartItem ci : cartItems) {
             Product product = ci.getProduct();
             ProductOption option = ci.getOption();
-            boolean visible = product.isVisible() && (option == null || option.isVisible());
-            int stock = option != null ? option.getStock() : product.getStock();
-            if (!visible || stock <= 0 || stock < ci.getQuantity()) {
+            if (unavailableReason(product, option, ci.getQuantity()) != null) {
                 continue; // 품절·판매중지·재고부족 항목은 주문에서 제외
             }
-            int unitPrice = effectiveUnitPrice(product, option);
-            lines.add(new Line(product, option, unitPrice, ci.getQuantity(), ci.getId()));
+            lines.add(new Line(product, option, effectiveUnitPrice(product, option),
+                    ci.getQuantity(), ci.getId()));
         }
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("주문할 수 있는 상품이 없습니다. 재고를 확인해 주세요.");
         }
+        return lines;
+    }
 
+    /**
+     * «바로 구매» 줄. 장바구니와 달리 못 사는 항목을 조용히 빼지 않고 이유를 말한다 —
+     * 손님이 방금 고른 그 상품이라, 빠지면 엉뚱한 주문이 된다.
+     */
+    private List<Line> linesFromDirect(List<OrderDtos.DirectItem> items) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("상품을 선택해 주세요.");
+        }
+        List<Line> lines = new ArrayList<>();
+        for (OrderDtos.DirectItem it : items) {
+            Product product = productRepository.findById(it.productId())
+                    .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
+            ProductOption option = pickOption(product, it.optionId());
+            String reason = unavailableReason(product, option, it.quantity());
+            if (reason != null) {
+                throw new IllegalArgumentException("'" + product.getNameKo() + "' " + reason);
+            }
+            lines.add(new Line(product, option, effectiveUnitPrice(product, option),
+                    it.quantity(), null));
+        }
+        return lines;
+    }
+
+    /** 옵션이 있는 상품이면 골라야 하고, 고른 옵션은 그 상품의 것이어야 한다 (CartService 와 같은 규칙). */
+    private ProductOption pickOption(Product product, Long optionId) {
+        List<ProductOption> options = product.getOptions().stream()
+                .filter(ProductOption::isVisible).toList();
+        if (optionId == null) {
+            if (!options.isEmpty()) {
+                throw new IllegalArgumentException("옵션을 선택해 주세요.");
+            }
+            return null;
+        }
+        return options.stream()
+                .filter(o -> o.getId().equals(optionId))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("선택한 옵션을 찾을 수 없습니다."));
+    }
+
+    /** 지금 이 수량을 살 수 없는 이유. 살 수 있으면 null. 장바구니 화면(CartService)과 같은 문장을 쓴다. */
+    private static String unavailableReason(Product product, ProductOption option, int qty) {
+        boolean visible = product.isVisible() && (option == null || option.isVisible());
+        int stock = option != null ? option.getStock() : product.getStock();
+        if (!visible) return "판매하지 않는 상품입니다.";
+        if (stock <= 0) return "품절되었습니다.";
+        if (stock < qty) return "재고가 부족합니다. 남은 수량 " + stock + "개.";
+        return null;
+    }
+
+    private static int amountOf(List<Line> lines) {
+        return lines.stream().mapToInt(l -> l.unitPrice * l.qty).sum();
+    }
+
+    /**
+     * 줄들로 주문을 만든다 — 재고 원자 차감 → 할인코드 → 배송비 → 스냅샷 → 결제 레코드.
+     * 장바구니 주문과 바로구매가 여기서 합류한다. fromCart 는 결제 확정 뒤 장바구니를 비울지 정한다.
+     */
+    private OrderDtos.OrderView place(List<Line> lines, Long memberId,
+                                      OrderDtos.CreateRequest req, boolean fromCart) {
         // 재고 원자적 차감. 하나라도 실패하면 예외 → 트랜잭션 롤백으로 앞선 차감도 되돌아간다.
         for (Line ln : lines) {
             int affected = (ln.option != null)
@@ -197,7 +322,7 @@ public class OrderService {
         }
 
         // 금액 계산
-        int itemsAmount = lines.stream().mapToInt(l -> l.unitPrice * l.qty).sum();
+        int itemsAmount = amountOf(lines);
         // 할인코드. 화면이 보낸 할인액은 받지 않는다 — 코드만 받고 서버가 다시 계산한다.
         // 쓸 수 없는 코드면 RejectedException 이 올라가 주문 자체가 만들어지지 않는다.
         // (이 시점에 재고는 이미 잡혔지만, 예외로 트랜잭션이 롤백되며 같이 되돌아간다.)
@@ -240,6 +365,7 @@ public class OrderService {
         order.setCouponId(couponId);
         order.setOrdererPhoneHash(ordererPhoneHash);
         order.setTotalAmount(total);
+        order.setFromCart(fromCart);
 
         for (Line ln : lines) {
             order.addItem(new OrderItem(
@@ -506,9 +632,12 @@ public class OrderService {
         }
     }
 
-    /** 결제된 주문에 담긴 상품(상품·옵션 조합)을 장바구니에서 뺀다. */
+    /**
+     * 결제된 주문에 담긴 상품(상품·옵션 조합)을 장바구니에서 뺀다.
+     * 장바구니에서 온 주문만이다 — 바로구매로 1개 샀다고 담아둔 같은 상품 4개를 지우면 안 된다.
+     */
     private void clearOrderedFromCart(Long cartId, Order order) {
-        if (cartId == null) {
+        if (cartId == null || !order.isFromCart()) {
             return;
         }
         java.util.Set<String> ordered = new java.util.HashSet<>();

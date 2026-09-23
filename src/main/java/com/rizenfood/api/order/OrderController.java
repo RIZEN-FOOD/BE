@@ -53,9 +53,20 @@ public class OrderController {
             HttpServletRequest request) {
 
         Long memberId = me != null ? me.id() : null;
-        Long cartId = resolveCartId(me, request);
-        OrderDtos.OrderView view = orderService.createFromCart(cartId, memberId, req);
+        // 바로구매는 장바구니가 없어도 된다(처음 온 비회원). 장바구니를 찾는 건 장바구니 주문일 때만.
+        OrderDtos.OrderView view = req.isDirect()
+                ? orderService.createDirect(memberId, req)
+                : orderService.createFromCart(resolveCartId(me, request), memberId, req);
         return ResponseEntity.status(201).body(view);
+    }
+
+    /**
+     * «바로 구매» 견적. 상품 페이지에서 고른 상품·수량으로 주문서가 보여줄 금액을 서버가 계산한다.
+     * 무엇도 잡거나 바꾸지 않는다. 확정 금액은 주문 생성에서 다시 계산한다.
+     */
+    @PostMapping("/quote")
+    public com.rizenfood.api.cart.dto.CartDtos.CartView quote(@Valid @RequestBody OrderDtos.QuoteRequest req) {
+        return orderService.quote(req.items());
     }
 
     @GetMapping("/{orderNo}")
@@ -147,7 +158,9 @@ public class OrderController {
             HttpServletRequest request) {
 
         Long memberId = me != null ? me.id() : null;
-        return orderService.previewCoupon(resolveCartId(me, request), memberId, req);
+        // 바로구매 미리보기는 장바구니가 없어도 된다.
+        Long cartId = req.isDirect() ? null : resolveCartId(me, request);
+        return orderService.previewCoupon(cartId, memberId, req);
     }
 
     /** 주문에 쓸 장바구니 id. 회원은 자기 장바구니, 게스트는 쿠키의 장바구니. */

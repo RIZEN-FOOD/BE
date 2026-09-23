@@ -3,8 +3,13 @@ package com.rizenfood.api.order.dto;
 import java.time.Instant;
 import java.util.List;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -14,11 +19,30 @@ public final class OrderDtos {
     }
 
     /**
+     * «바로 구매» 한 줄 — 무엇을 몇 개. 상품 페이지에서 장바구니를 거치지 않고 올 때 쓴다.
+     * ★ 가격은 없다. 서버가 상품 테이블에서 다시 읽는다. 장바구니 담기와 같은 신뢰 수준이다.
+     */
+    public record DirectItem(
+            @NotNull(message = "상품을 선택해 주세요.") Long productId,
+            Long optionId,
+            @Min(value = 1, message = "수량은 1개 이상이어야 합니다.")
+            @Max(value = 99, message = "수량은 99개까지 담을 수 있습니다.")
+            int quantity) {
+    }
+
+    /** «바로 구매» 견적 요청 — 주문서에 보여줄 상품·금액을 서버가 계산해 준다. */
+    public record QuoteRequest(
+            @NotEmpty(message = "상품을 선택해 주세요.")
+            @Size(max = 20) List<@Valid DirectItem> items) {
+    }
+
+    /**
      * 주문 생성 요청.
      *
-     * ★ 금액·상품·수량은 받지 않는다. 서버가 요청자의 장바구니를 다시 읽어
-     *   금액을 계산하고 재고를 확인한다 (CLAUDE.md 규칙 5).
-     *   클라이언트는 주문자·배송지 정보만 보낸다.
+     * ★ 금액은 받지 않는다. 서버가 상품 테이블을 다시 읽어 금액을 계산하고 재고를 확인한다
+     *   (CLAUDE.md 규칙 5). 클라이언트는 주문자·배송지 정보만 보낸다.
+     *   상품은 두 갈래다 — items 가 비어 있으면 요청자의 장바구니에서, 있으면 그 줄들로만
+     *   («바로 구매»). 어느 쪽이든 «무엇을 몇 개»까지만 받고 가격은 받지 않는다.
      */
     public record CreateRequest(
             @NotBlank(message = "주문자 이름을 입력해 주세요.")
@@ -45,7 +69,15 @@ public final class OrderDtos {
              * 할인코드. 비워도 된다.
              * ★ 할인 금액은 받지 않는다. 코드만 받고 서버가 다시 계산한다.
              */
-            @Size(max = 60) String couponCode) {
+            @Size(max = 60) String couponCode,
+
+            /** «바로 구매» 줄들. 비어 있으면 장바구니 주문이다. */
+            @Size(max = 20) List<@Valid DirectItem> items) {
+
+        /** 장바구니가 아니라 요청에 실린 줄로 주문하는가. */
+        public boolean isDirect() {
+            return items != null && !items.isEmpty();
+        }
     }
 
     /** 결제(모의) 요청. 금액은 서버가 정하므로 받지 않는다. */

@@ -97,6 +97,14 @@ public class Order {
     @Column(name = "orderer_phone_hash", length = 64)
     private String ordererPhoneHash;
 
+    /**
+     * 장바구니에서 온 주문(true)인지 상품 페이지 «바로 구매»(false)인지 (V35).
+     * 결제 확정 뒤 장바구니를 비우는 건 장바구니 주문에만 한다 — 바로구매로 1개 샀다고
+     * 담아둔 같은 상품까지 지우지 않는다.
+     */
+    @Column(name = "from_cart", nullable = false)
+    private boolean fromCart = true;
+
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
 
@@ -186,6 +194,8 @@ public class Order {
     public void setCouponId(Long v) { this.couponId = v; }
     public String getOrdererPhoneHash() { return ordererPhoneHash; }
     public void setOrdererPhoneHash(String v) { this.ordererPhoneHash = v; }
+    public boolean isFromCart() { return fromCart; }
+    public void setFromCart(boolean v) { this.fromCart = v; }
     public int getTotalAmount() { return totalAmount; }
     public void setTotalAmount(int v) { this.totalAmount = v; }
     public Instant getOrderedAt() { return orderedAt; }

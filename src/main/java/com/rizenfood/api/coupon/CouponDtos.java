@@ -1,7 +1,11 @@
 package com.rizenfood.api.coupon;
 
 import java.time.Instant;
+import java.util.List;
 
+import com.rizenfood.api.order.dto.OrderDtos;
+
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -28,7 +32,14 @@ public final class CouponDtos {
              * 주문자 연락처. 비워도 된다.
              * 비회원의 "1인 n회"를 결제 전에 미리 알려주려고 받는다. 없으면 그 검사만 건너뛴다.
              */
-            @Size(max = 20) String ordererPhone) {
+            @Size(max = 20) String ordererPhone,
+
+            /** «바로 구매» 줄들. 비어 있으면 장바구니 금액으로 본다. */
+            @Size(max = 20) List<OrderDtos.@Valid DirectItem> items) {
+
+        public boolean isDirect() {
+            return items != null && !items.isEmpty();
+        }
     }
 
     /** 미리보기 결과. 적용했을 때 얼마가 깎이고 얼마를 내는지. */
