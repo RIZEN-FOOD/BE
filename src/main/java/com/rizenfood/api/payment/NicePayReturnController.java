@@ -70,8 +70,14 @@ public class NicePayReturnController {
         // 1) 인증 실패 — 손님이 창을 닫았거나 카드사가 거절했다. 승인하지 않고 되돌려 보낸다.
         if (!NicePayGateway.OK.equals(authResultCode)) {
             log.info("나이스 인증 실패: order={} code={} msg={}", orderId, authResultCode, authResultMsg);
-            return redirectToOrder(orderId, authResultMsg == null || authResultMsg.isBlank()
-                    ? "결제가 취소되었습니다." : authResultMsg);
+            String shown = authResultMsg == null || authResultMsg.isBlank()
+                    ? "결제가 취소되었습니다." : authResultMsg;
+            // 나이스는 거절 결과에도 서명을 붙여 보낸다. 서명이 맞을 때만 사유를 남기고 주문을 정리한다.
+            // 맞지 않으면(손님이 창을 닫아 값이 비었거나 위조) 예전처럼 화면의 cancel-pending 에 맡긴다.
+            if (gateway.verifyAuthSignature(authToken, amount, signature)) {
+                orderService.failPendingByPg(orderId, "나이스 " + authResultCode + ": " + shown);
+            }
+            return redirectToOrder(orderId, shown);
         }
 
         // 2) 위변조 검증 — 우리 시크릿 키로 다시 계산해 같아야 한다.

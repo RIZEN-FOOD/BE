@@ -600,6 +600,28 @@ public class OrderService {
     }
 
     /** 미결제 주문 정리: 재고를 되돌리고 주문은 취소, 결제는 실패로 남긴다. */
+    /**
+     * PG 가 인증 단계에서 거절한 결제대기 주문을 정리하고, PG 가 보낸 사유를 결제에 남긴다 (2026-10-01).
+     *
+     * 전에는 사유가 손님 화면에만 잠깐 뜨고 사라졌다. 이어서 화면이 cancel-pending 을 부르면
+     * "결제창 닫힘·실패" 같은 뭉뚱그린 사유만 남아, 관리자는 왜 실패했는지 알 수 없었다
+     * (2026-09-26 계좌이체 미개통 N003 건을 나이스 콘솔을 뒤져서야 찾았다).
+     *
+     * ★ 호출하는 쪽이 나이스 서명을 확인한 뒤에만 부른다. 주문번호만으로 남의 주문을 취소시키지 못하게.
+     * ★ 결제대기가 아니면 손대지 않는다 — 이미 정리됐거나 확정된 주문의 재고를 두 번 돌려주지 않게.
+     *   인증이 거절됐으면 승인 API 를 부른 적이 없으니 돈은 움직이지 않았다. 바로 정리해도 안전하다.
+     */
+    @Transactional
+    public void failPendingByPg(String orderNo, String reason) {
+        Order order = orderRepository.findByOrderNo(orderNo).orElse(null);
+        if (order == null || !order.isPending()) {
+            return;
+        }
+        Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
+        String trimmed = reason == null ? "" : reason.trim();
+        releasePending(order, payment, trimmed.length() > 500 ? trimmed.substring(0, 500) : trimmed);
+    }
+
     private void releasePending(Order order, Payment payment, String reason) {
         restock(order);
         order.markCancelled();
@@ -745,7 +767,7 @@ public class OrderService {
 
         AdminOrderDtos.PaymentInfo pay = paymentRepository.findByOrderId(o.getId())
                 .map(p -> new AdminOrderDtos.PaymentInfo(p.getStatus(), p.getPgProvider(),
-                        p.getMethod(), p.getAmount(), p.getApprovedAt()))
+                        p.getMethod(), p.getAmount(), p.getApprovedAt(), p.getFailReason()))
                 .orElse(null);
 
         AdminOrderDtos.DeliveryInfo del = deliveryRepository.findByOrderId(o.getId())

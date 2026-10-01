@@ -52,8 +52,9 @@ public final class AdminOrderDtos {
             DeliveryInfo delivery) {
     }
 
+    /** failReason: 실패·취소된 결제의 이유. 나이스 거절이면 "나이스 N003: 결제수단이 유효하지 않습니다." 꼴. */
     public record PaymentInfo(String status, String provider, String method, int amount,
-                              Instant approvedAt) {
+                              Instant approvedAt, String failReason) {
     }
 
     public record DeliveryInfo(String status, String carrier, String trackingNo,

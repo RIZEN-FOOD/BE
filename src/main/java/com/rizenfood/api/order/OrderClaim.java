@@ -48,7 +48,13 @@ public class OrderClaim {
     @Column(name = "admin_memo", length = 1000)
     private String adminMemo;
 
-    @Column(name = "requested_at", nullable = false, insertable = false, updatable = false)
+    /**
+     * 요청 시각. 만들 때 서버가 채운다 (2026-10-01).
+     * 전에는 DB 기본값(now())에만 맡겨, 저장 직후의 객체엔 값이 없었다. 손님이 취소를 신청하면
+     * 화면이 그 응답을 목록 맨 위에 붙이는데 "- 접수"로 찍혔다(새로고침해야 시각이 보였다).
+     * DB 기본값은 그대로 두어, 혹시 직접 넣는 경로가 생겨도 비지 않는다. 한 번 정하면 바꾸지 않는다.
+     */
+    @Column(name = "requested_at", nullable = false, updatable = false)
     private Instant requestedAt;
 
     @Column(name = "processed_at")
@@ -62,6 +68,7 @@ public class OrderClaim {
         this.type = type.name();
         this.reasonCode = reasonCode;
         this.reasonText = reasonText;
+        this.requestedAt = Instant.now();
     }
 
     /**

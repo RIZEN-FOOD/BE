@@ -63,6 +63,18 @@ class NicePaySignatureTest {
     }
 
     @Test
+    @DisplayName("비밀키가 비어 있으면 거부한다 — 키 없이 계산한 서명은 누구나 만들 수 있다")
+    void rejectsWhenSecretKeyMissing() {
+        NicePayGateway noKey = new NicePayGateway(null, CLIENT_ID, "", "", "https://api.nicepay.co.kr");
+        String authToken = "authToken-abc123";
+        String amount = "15900";
+        // 비밀키 자리를 비운 채로 계산하면 공개 값만으로 만든 서명이 된다.
+        String forged = NicePayGateway.sha256Hex(authToken + CLIENT_ID + amount);
+
+        assertThat(noKey.verifyAuthSignature(authToken, amount, forged)).isFalse();
+    }
+
+    @Test
     @DisplayName("해시는 소문자 16진수 64자리")
     void producesLowercaseHex() {
         String hex = NicePayGateway.sha256Hex("hello");

@@ -253,6 +253,11 @@ public class NicePayGateway implements PaymentGateway {
         if (signature == null || signature.isBlank()) {
             return false;
         }
+        // ★ 비밀키가 비어 있으면 서명은 누구나 계산할 수 있다(authToken·clientId·amount 는 다 공개 값).
+        //   키가 빠진 채로 떠 있을 때 가짜 결과를 믿지 않도록 무조건 거부한다 (2026-10-01).
+        if (secretKey.isEmpty()) {
+            return false;
+        }
         return sha256Hex(authToken + clientId + amount + secretKey).equalsIgnoreCase(signature);
     }
 }

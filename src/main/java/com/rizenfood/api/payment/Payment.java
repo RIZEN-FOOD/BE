@@ -111,4 +111,6 @@ public class Payment {
     public String getMethod() { return method; }
     public Instant getApprovedAt() { return approvedAt; }
     public String getReceiptUrl() { return receiptUrl; }
+    /** 결제가 실패·취소된 이유. 나이스가 보낸 거절 사유가 있으면 그것이 들어간다. */
+    public String getFailReason() { return failReason; }
 }
