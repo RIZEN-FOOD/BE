@@ -105,6 +105,16 @@ public class Order {
     @Column(name = "from_cart", nullable = false)
     private boolean fromCart = true;
 
+    /** 주문이 들어온 판매 경로 (V36). 네이버페이 주문형·톡체크아웃은 우리 결제를 거치지 않는다. */
+    public enum Channel { MALL, NAVERPAY, KAKAO_CHECKOUT }
+
+    @Column(nullable = false, length = 20)
+    private String channel = Channel.MALL.name();
+
+    /** 바깥 서비스의 주문번호 (V36). 자사몰 주문은 비어 있다. 경로마다 하나만 허용(DB 유니크). */
+    @Column(name = "external_order_no", length = 64)
+    private String externalOrderNo;
+
     @Column(name = "total_amount", nullable = false)
     private int totalAmount;
 
@@ -196,6 +206,10 @@ public class Order {
     public void setOrdererPhoneHash(String v) { this.ordererPhoneHash = v; }
     public boolean isFromCart() { return fromCart; }
     public void setFromCart(boolean v) { this.fromCart = v; }
+    public String getChannel() { return channel; }
+    public void setChannel(Channel v) { this.channel = v.name(); }
+    public String getExternalOrderNo() { return externalOrderNo; }
+    public void setExternalOrderNo(String v) { this.externalOrderNo = v; }
     public int getTotalAmount() { return totalAmount; }
     public void setTotalAmount(int v) { this.totalAmount = v; }
     public Instant getOrderedAt() { return orderedAt; }

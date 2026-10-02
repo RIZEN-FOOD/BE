@@ -54,6 +54,10 @@ public class OrderItem {
     @Column(name = "line_amount", nullable = false)
     private int lineAmount;
 
+    /** 바깥 서비스의 상품주문번호 (V36). 네이버페이는 발송·취소·반품을 이 번호로 주고받는다. */
+    @Column(name = "external_product_order_id", length = 64)
+    private String externalProductOrderId;
+
     protected OrderItem() {
     }
 
@@ -83,4 +87,6 @@ public class OrderItem {
     public int getUnitPriceSnapshot() { return unitPriceSnapshot; }
     public int getQuantity() { return quantity; }
     public int getLineAmount() { return lineAmount; }
+    public String getExternalProductOrderId() { return externalProductOrderId; }
+    public void setExternalProductOrderId(String v) { this.externalProductOrderId = v; }
 }

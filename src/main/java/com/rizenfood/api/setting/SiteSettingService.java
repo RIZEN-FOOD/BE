@@ -38,6 +38,9 @@ public class SiteSettingService {
             "sns.instagram", "sns.youtube", "sns.blog",
             "auth.login_image", "auth.signup_image", "main.hero_images");
 
+    /** 우편번호 칸. 바깥 서비스(네이버페이·톡체크아웃)가 숫자 5자리로만 받는다. */
+    private static final Set<String> ZIPCODE_KEYS = Set.of("shipping.return_zipcode");
+
     private final SiteSettingRepository repository;
 
     public SiteSettingService(SiteSettingRepository repository) {
@@ -67,9 +70,23 @@ public class SiteSettingService {
     @Transactional
     public void updateValues(Map<String, String> values) {
         values.forEach((key, value) -> {
-            String checked = URL_KEYS.contains(key) ? validUrls(key, value) : value;
+            String checked = URL_KEYS.contains(key) ? validUrls(key, value)
+                    : ZIPCODE_KEYS.contains(key) ? validZipcode(value)
+                    : value;
             repository.findById(key).ifPresent(setting -> setting.updateValue(checked));
         });
+    }
+
+    /** 비우거나 숫자 5자리만 받는다. 하이픈·공백은 걷어낸다. */
+    private String validZipcode(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String digits = value.replaceAll("[\\s-]", "");
+        if (!digits.matches("\\d{5}")) {
+            throw new IllegalArgumentException("반품지 우편번호는 숫자 5자리로 넣어주세요. 예: 12345");
+        }
+        return digits;
     }
 
     private boolean isPublic(String key) {

@@ -40,16 +40,20 @@ public class AdminShippingController {
         this.auditService = auditService;
     }
 
-    public record PolicyView(Long id, String name, int baseFee, Integer freeThreshold, int islandExtraFee) {
+    /** returnFee·exchangeFee: 단순 변심 반품(편도)·교환(왕복) 배송비. null 이면 아직 정하지 않음. */
+    public record PolicyView(Long id, String name, int baseFee, Integer freeThreshold, int islandExtraFee,
+                             Integer returnFee, Integer exchangeFee) {
     }
 
-    public record UpdateRequest(String name, Integer baseFee, Integer freeThreshold, Integer islandExtraFee) {
+    public record UpdateRequest(String name, Integer baseFee, Integer freeThreshold, Integer islandExtraFee,
+                                Integer returnFee, Integer exchangeFee) {
     }
 
     @GetMapping
     public PolicyView current() {
         ShippingPolicy p = activePolicy();
-        return new PolicyView(p.getId(), p.getName(), p.getBaseFee(), p.getFreeThreshold(), p.getIslandExtraFee());
+        return new PolicyView(p.getId(), p.getName(), p.getBaseFee(), p.getFreeThreshold(), p.getIslandExtraFee(),
+                p.getReturnFee(), p.getExchangeFee());
     }
 
     @PutMapping
@@ -64,17 +68,21 @@ public class AdminShippingController {
         int baseFee = req.baseFee() == null ? 0 : req.baseFee();
         int islandExtraFee = req.islandExtraFee() == null ? 0 : req.islandExtraFee();
         Integer freeThreshold = req.freeThreshold();
+        Integer returnFee = req.returnFee();
+        Integer exchangeFee = req.exchangeFee();
 
-        if (baseFee < 0 || islandExtraFee < 0 || (freeThreshold != null && freeThreshold < 0)) {
+        if (baseFee < 0 || islandExtraFee < 0 || (freeThreshold != null && freeThreshold < 0)
+                || (returnFee != null && returnFee < 0) || (exchangeFee != null && exchangeFee < 0)) {
             throw new IllegalArgumentException("금액은 0원 이상이어야 합니다.");
         }
         String name = (req.name() == null || req.name().isBlank()) ? p.getName() : req.name().trim();
 
-        p.update(name, baseFee, freeThreshold, islandExtraFee);
+        p.update(name, baseFee, freeThreshold, islandExtraFee, returnFee, exchangeFee);
 
         auditService.record(admin.id(), admin.displayName(), "UPDATE_SHIPPING_POLICY",
                 "SHIPPING_POLICY", String.valueOf(p.getId()),
-                "base=" + baseFee + " free=" + freeThreshold + " island=" + islandExtraFee, httpRequest);
+                "base=" + baseFee + " free=" + freeThreshold + " island=" + islandExtraFee
+                        + " return=" + returnFee + " exchange=" + exchangeFee, httpRequest);
 
         return ResponseEntity.ok(Map.of("message", "저장되었습니다."));
     }

@@ -22,7 +22,9 @@ public final class AdminOrderDtos {
             int totalAmount,
             String paymentStatus,
             Instant orderedAt,
-            Instant paidAt) {
+            Instant paidAt,
+            /** 판매 경로. MALL 이면 자사몰. */
+            String channel) {
     }
 
     /**
@@ -49,7 +51,10 @@ public final class AdminOrderDtos {
             Instant paidAt,
             List<OrderDtos.ItemView> items,
             PaymentInfo payment,
-            DeliveryInfo delivery) {
+            DeliveryInfo delivery,
+            /** 판매 경로와 바깥 서비스 주문번호. 자사몰이면 MALL·null. */
+            String channel,
+            String externalOrderNo) {
     }
 
     /** failReason: 실패·취소된 결제의 이유. 나이스 거절이면 "나이스 N003: 결제수단이 유효하지 않습니다." 꼴. */

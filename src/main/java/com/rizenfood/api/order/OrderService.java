@@ -749,7 +749,7 @@ public class OrderService {
             if (its.size() > 1) title += " 외 " + (its.size() - 1) + "건";
             return new AdminOrderDtos.Summary(
                     o.getOrderNo(), o.getStatus(), o.getOrdererName(), its.size(), title,
-                    o.getTotalAmount(), payStatus, o.getOrderedAt(), o.getPaidAt());
+                    o.getTotalAmount(), payStatus, o.getOrderedAt(), o.getPaidAt(), o.getChannel());
         });
     }
 
@@ -782,7 +782,7 @@ public class OrderService {
                 o.getReceiverName(), plain(o.getReceiverPhoneEncrypted()),
                 o.getZipcode(), o.getAddr1(), o.getAddr2(), o.getDeliveryMemo(),
                 o.getItemsAmount(), o.getShippingFee(), o.getDiscountAmount(), o.getTotalAmount(),
-                o.getOrderedAt(), o.getPaidAt(), items, pay, del);
+                o.getOrderedAt(), o.getPaidAt(), items, pay, del, o.getChannel(), o.getExternalOrderNo());
     }
 
     @Transactional

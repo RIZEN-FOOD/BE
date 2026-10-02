@@ -41,6 +41,14 @@ public class ShippingPolicy {
     @Column(nullable = false)
     private boolean visible;
 
+    /** 단순 변심 반품 배송비(편도) (V36). 비어 있으면 아직 정하지 않은 것. */
+    @Column(name = "return_fee")
+    private Integer returnFee;
+
+    /** 단순 변심 교환 배송비(왕복) (V36). 비어 있으면 아직 정하지 않은 것. */
+    @Column(name = "exchange_fee")
+    private Integer exchangeFee;
+
     protected ShippingPolicy() {
     }
 
@@ -95,11 +103,22 @@ public class ShippingPolicy {
      * 관리자 수정. 금액 항목만 바꾼다. 활성 여부(visible)는 건드리지 않는다
      * — 유일한 활성 정책이 사라져 결제 배송비가 0으로 새는 것을 막기 위해서다.
      */
-    public void update(String name, int baseFee, Integer freeThreshold, int islandExtraFee) {
+    public void update(String name, int baseFee, Integer freeThreshold, int islandExtraFee,
+                       Integer returnFee, Integer exchangeFee) {
         this.name = name;
         this.baseFee = baseFee;
         this.freeThreshold = freeThreshold;
         this.islandExtraFee = islandExtraFee;
+        this.returnFee = returnFee;
+        this.exchangeFee = exchangeFee;
+    }
+
+    public Integer getReturnFee() {
+        return returnFee;
+    }
+
+    public Integer getExchangeFee() {
+        return exchangeFee;
     }
 
     public Long getId() {
