@@ -84,6 +84,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/payment/nicepay/return").permitAll()
                         // 나이스 결과 통보(웹훅). 서버끼리 오는 요청이라 로그인이 없다 — 서명으로 검증한다.
                         .requestMatchers(HttpMethod.POST, "/api/payment/webhook/nicepay").permitAll()
+                        // 네이버페이 주문형. 손님(구매 버튼)과 네이버 서버(상품정보·도서산간비)가 부른다.
+                        // 공개 정보만 내보내고, 금액은 서버가 DB 에서 다시 읽는다 (NaverPayController).
+                        .requestMatchers("/api/naverpay/**").permitAll()
                         // 관리 API 는 전부 인증이 필요하다. 역할 검사는 @PreAuthorize 가 한다.
                         .requestMatchers("/api/admin/**").authenticated()
                         // 회원 전용 API. 세부 검사는 @PreAuthorize("hasRole('MEMBER')") 가 한다.

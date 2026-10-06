@@ -291,13 +291,9 @@ public class OrderService {
     }
 
     /** 지금 이 수량을 살 수 없는 이유. 살 수 있으면 null. 장바구니 화면(CartService)과 같은 문장을 쓴다. */
+    /** 판정은 ProductAvailability 한 곳에서 한다 — 네이버페이 주문형도 같은 규칙을 쓴다. */
     private static String unavailableReason(Product product, ProductOption option, int qty) {
-        boolean visible = product.isVisible() && (option == null || option.isVisible());
-        int stock = option != null ? option.getStock() : product.getStock();
-        if (!visible) return "판매하지 않는 상품입니다.";
-        if (stock <= 0) return "품절되었습니다.";
-        if (stock < qty) return "재고가 부족합니다. 남은 수량 " + stock + "개.";
-        return null;
+        return com.rizenfood.api.product.ProductAvailability.unavailableReason(product, option, qty);
     }
 
     private static int amountOf(List<Line> lines) {

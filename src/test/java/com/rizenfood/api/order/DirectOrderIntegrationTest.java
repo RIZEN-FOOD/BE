@@ -94,6 +94,19 @@ class DirectOrderIntegrationTest {
     }
 
     @Test
+    @DisplayName("관리자가 수동 품절로 돌린 상품은 재고가 남아 있어도 주문되지 않는다 (2026-10-06)")
+    void rejectsManualSoldOut() {
+        Long id = insertProduct("수동 품절 상품", 12_900, null, 10, true);
+        jdbc.update("UPDATE product SET sold_out = true WHERE id = ?", id);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> orderService.createDirect(
+                        null, request(List.of(new OrderDtos.DirectItem(id, null, 1)))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("품절");
+        assertThat(stockOf(id)).as("재고는 그대로").isEqualTo(10);
+    }
+
+    @Test
     @DisplayName("재고보다 많이 사려 하면 주문이 만들어지지 않고 재고도 그대로다")
     void rejectsWhenStockIsShort() {
         Long id = insertProduct("바로구매 상품", 12_900, null, 2, true);

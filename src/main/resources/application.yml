@@ -27,6 +27,11 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  tomcat:
+    # 네이버페이가 상품정보를 product[0][id]=1 처럼 대괄호를 인코딩하지 않고 보낸다.
+    # 톰캣 기본값은 이런 주소를 400 으로 거절한다 (2026-10-06).
+    relaxed-query-chars: "[,]"
+
   # 응답 헤더에서 서버 종류를 감춘다.
   server-header:
   error:
@@ -120,6 +125,18 @@ app:
       channel-key-transfer: ${PORTONE_CHANNEL_KEY_TRANSFER:} # 계좌이체 (보통 카드와 같은 PG 채널)
       # ★ 서버 전용 비밀값. 웹훅 서명 검증(whsec_...). 포트원 콘솔 → 결제 연동 → 웹훅.
       webhook-secret: ${PORTONE_WEBHOOK_SECRET:}
+
+  naverpay:
+    # 네이버페이 주문형(직가맹) — 상품 상세의 [N Pay 구매] 버튼 (2026-10-06).
+    # 꺼져 있거나(기본) 키가 하나라도 비면 버튼과 주소가 모두 숨는다.
+    # 가맹 승인 뒤 받은 키를 넣고 mode=test 로 검수 → 오픈 승인 뒤 production.
+    enabled: ${NAVERPAY_ENABLED:false}
+    mode: ${NAVERPAY_MODE:test}              # test(검수 전) | production(오픈 후)
+    merchant-id: ${NAVERPAY_MERCHANT_ID:}    # 가맹점 ID (np_ 로 시작)
+    certi-key: ${NAVERPAY_CERTI_KEY:}        # 가맹점 인증키 — 주문 등록에 쓴다. 화면에 내보내지 않는다
+    button-key: ${NAVERPAY_BUTTON_KEY:}      # 버튼 인증키 — 구매 버튼 SDK
+    common-key: ${NAVERPAY_COMMON_KEY:}      # 네이버 공통 인증키 — 유입 경로 스크립트(비우면 안 싣는다)
+    tax-type: ${NAVERPAY_TAX_TYPE:TAX}       # TAX | TAX_FREE | ZERO_TAX
 
   image:
     max-file-size-bytes: 10485760   # 10MB
