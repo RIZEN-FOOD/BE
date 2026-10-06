@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -21,6 +22,7 @@ import com.rizenfood.api.image.ImageService;
 import com.rizenfood.api.coupon.CouponService;
 import com.rizenfood.api.member.PhoneCipher;
 import com.rizenfood.api.member.PhoneHasher;
+import com.rizenfood.api.notify.OrderNotificationEvent;
 import com.rizenfood.api.order.dto.AdminOrderDtos;
 import com.rizenfood.api.order.dto.OrderDtos;
 import com.rizenfood.api.payment.Payment;
@@ -68,6 +70,8 @@ public class OrderService {
     private final SiteSettingRepository siteSettingRepository;
     private final CouponService couponService;
     private final PhoneHasher phoneHasher;
+    /** 손님 알림(알림톡). 주문 커밋 뒤에 OrderNotifier 가 받아 보낸다. */
+    private final ApplicationEventPublisher events;
 
     public OrderService(CartItemRepository cartItemRepository,
                         ProductRepository productRepository,
@@ -85,7 +89,8 @@ public class OrderService {
                         IslandZipService islandZipService,
                         SiteSettingRepository siteSettingRepository,
                         CouponService couponService,
-                        PhoneHasher phoneHasher) {
+                        PhoneHasher phoneHasher,
+                        ApplicationEventPublisher events) {
         this.cartItemRepository = cartItemRepository;
         this.productRepository = productRepository;
         this.optionRepository = optionRepository;
@@ -103,6 +108,7 @@ public class OrderService {
         this.siteSettingRepository = siteSettingRepository;
         this.couponService = couponService;
         this.phoneHasher = phoneHasher;
+        this.events = events;
     }
 
     // ── 할인코드 미리보기 ──────────────────────────────────────
@@ -443,6 +449,7 @@ public class OrderService {
 
         payment.markPaid(approval.tid(), approval.method(), approval.receiptUrl());
         order.markPaid();
+        events.publishEvent(new OrderNotificationEvent(order.getId(), OrderNotificationEvent.Type.PAID));
         // 결제가 확정된 뒤에야 장바구니를 비운다(결제창 이탈·실패 시 장바구니를 잃지 않게).
         clearOrderedFromCart(cartId, order);
         return toView(order);
@@ -592,6 +599,7 @@ public class OrderService {
         }
         payment.markPaid(approval.tid(), approval.method(), approval.receiptUrl());
         order.markPaid();
+        events.publishEvent(new OrderNotificationEvent(order.getId(), OrderNotificationEvent.Type.PAID));
         return true;
     }
 
@@ -798,8 +806,13 @@ public class OrderService {
 
         Delivery delivery = deliveryRepository.findByOrderId(o.getId())
                 .orElseGet(() -> deliveryRepository.save(new Delivery(o.getId())));
+        // 같은 송장을 다시 저장한 것(두 번 누름)이면 손님에게 출고 알림을 또 보내지 않는다.
+        boolean changed = !trackingNo.equals(delivery.getTrackingNo()) || !carrier.equals(delivery.getCarrier());
         delivery.ship(carrier, trackingNo);
         o.applyStatus(Order.Status.SHIPPED.name());
+        if (changed) {
+            events.publishEvent(new OrderNotificationEvent(o.getId(), OrderNotificationEvent.Type.SHIPPED));
+        }
     }
 
     // ── 송장 엑셀 일괄 등록 ──────────────────────────────────
@@ -898,6 +911,7 @@ public class OrderService {
 
             delivery.ship(carrier, trackingNo);
             order.applyStatus(Order.Status.SHIPPED.name());
+            events.publishEvent(new OrderNotificationEvent(order.getId(), OrderNotificationEvent.Type.SHIPPED));
             applied++;
         }
 

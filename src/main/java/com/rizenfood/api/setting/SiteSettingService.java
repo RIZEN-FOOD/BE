@@ -35,7 +35,7 @@ public class SiteSettingService {
 
     /** 주소를 넣는 칸. 스크립트 주소(javascript:)가 들어가면 화면에서 그대로 링크가 된다. */
     private static final Set<String> URL_KEYS = Set.of(
-            "sns.instagram", "sns.youtube", "sns.blog",
+            "sns.instagram", "sns.youtube", "sns.blog", "sns.kakao_channel",
             "auth.login_image", "auth.signup_image", "main.hero_images");
 
     /** 우편번호 칸. 바깥 서비스(네이버페이·톡체크아웃)가 숫자 5자리로만 받는다. */

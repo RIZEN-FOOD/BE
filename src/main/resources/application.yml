@@ -138,6 +138,14 @@ app:
     common-key: ${NAVERPAY_COMMON_KEY:}      # 네이버 공통 인증키 — 유입 경로 스크립트(비우면 안 싣는다)
     tax-type: ${NAVERPAY_TAX_TYPE:TAX}       # TAX | TAX_FREE | ZERO_TAX
 
+  alimtalk:
+    # 카카오 알림톡 — 결제 완료·상품 출고 안내 (2026-10-06). 발송 대행사(공식 딜러사)를 거쳐 보낸다.
+    # 꺼져 있으면(기본) 아무것도 보내지 않는다. provider=none 이면 켜도 로그만 남긴다(업체 미정).
+    enabled: ${ALIMTALK_ENABLED:false}
+    provider: ${ALIMTALK_PROVIDER:none}
+    template-paid: ${ALIMTALK_TEMPLATE_PAID:}       # 카카오 심사 통과 후 업체 콘솔의 템플릿 코드
+    template-shipped: ${ALIMTALK_TEMPLATE_SHIPPED:}
+
   image:
     max-file-size-bytes: 10485760   # 10MB
     # 압축 폭탄 방지. 파일은 작아도 풀면 수억 픽셀이 되는 파일을 막는다.
