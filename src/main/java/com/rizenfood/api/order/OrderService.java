@@ -918,19 +918,29 @@ public class OrderService {
         return new BulkShipResult(rows.size(), applied, skipped, failures);
     }
 
-    /** 출고용 엑셀에 담을 기본 상태: 결제는 끝났고 아직 출고 전인 주문. */
-    private static final List<String> SHIP_WAITING = List.of(
-            Order.Status.PAID.name(), Order.Status.PREPARING.name());
+    /**
+     * 출고용 엑셀에 담을 기본 상태: 결제는 끝났고 아직 대행사에 넘기지 않은 주문(결제 완료)만.
+     * 한 번 넘긴 주문은 '상품 준비중'이 되므로 다음 엑셀에 다시 들어가지 않는다 (2026-10-06).
+     */
+    private static final List<String> SHIP_WAITING = List.of(Order.Status.PAID.name());
 
-    /** 만든 엑셀 파일과 담긴 주문 수(감사 로그용). */
-    public record ShippingExport(byte[] file, int orderCount) {
+    /**
+     * 만든 엑셀 파일과 담긴 주문 수(감사 로그용).
+     *
+     * @param preparedCount 이번에 '결제 완료' → '상품 준비중'으로 바뀐 주문 수
+     */
+    public record ShippingExport(byte[] file, int orderCount, int preparedCount) {
     }
 
     /**
      * 출고 대행사(3PL)에 넘길 주문 엑셀.
-     * status 를 주면 그 상태만, 비우면 출고 대기(결제완료·상품준비중)를 오래된 순으로 담는다.
+     * status 를 주면 그 상태만, 비우면 아직 넘기지 않은 주문(결제 완료)을 오래된 순으로 담는다.
+     *
+     * ★ 담긴 주문 중 '결제 완료'는 '상품 준비중'으로 바꾼다 (2026-10-06).
+     *   전에는 상태가 그대로라, 송장을 올리기 전에 엑셀을 한 번 더 받으면 이미 넘긴 주문이 또 들어가
+     *   대행사가 두 번 출고할 수 있었다. 다시 받아야 하면 '상품 준비중'을 골라 받는다(상태는 그대로).
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public ShippingExport adminExportForShipping(String status) {
         List<String> statuses;
         if (status == null || status.isBlank()) {
@@ -943,7 +953,16 @@ public class OrderService {
             }
         }
         List<Order> orders = orderRepository.findTop1000ByStatusInOrderByOrderedAtAsc(statuses);
-        return new ShippingExport(OrderShippingSheet.build(orders, this::plain), orders.size());
+
+        // 엑셀을 만들기 전에 바꾼다 — 엑셀의 '주문상태' 칸도 '상품 준비중'으로 나가 사이트와 같다.
+        int prepared = 0;
+        for (Order o : orders) {
+            if (Order.Status.PAID.name().equals(o.getStatus())) {
+                o.applyStatus(Order.Status.PREPARING.name());
+                prepared++;
+            }
+        }
+        return new ShippingExport(OrderShippingSheet.build(orders, this::plain), orders.size(), prepared);
     }
 
     /** 관리자 상세 표시용 복호화. 실패하면 빈 문자열. */

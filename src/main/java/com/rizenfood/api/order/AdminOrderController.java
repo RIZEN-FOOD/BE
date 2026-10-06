@@ -74,8 +74,11 @@ public class AdminOrderController {
     /**
      * 출고 대행사에 넘길 주문 엑셀(.xlsx).
      * 받는 분 연락처·주소가 복호화돼 담기므로 내려받을 때마다 감사 로그를 남긴다.
+     *
+     * ★ POST 다 — 담긴 '결제 완료' 주문을 '상품 준비중'으로 바꾸는 요청이라 GET 으로 두지 않는다
+     *   (브라우저 미리 불러오기·새로고침으로 상태가 바뀌면 안 된다). 바뀐 건수는 X-Prepared-Count 로 알려준다.
      */
-    @GetMapping("/export")
+    @PostMapping("/export")
     public ResponseEntity<byte[]> exportForShipping(
             @RequestParam(required = false) String status,
             @AuthenticationPrincipal JwtTokenProvider.AuthenticatedAdmin admin,
@@ -84,7 +87,9 @@ public class AdminOrderController {
         OrderService.ShippingExport export = orderService.adminExportForShipping(status);
         String scope = (status == null || status.isBlank()) ? "출고 대기" : status;
         auditService.record(admin.id(), admin.displayName(), "EXPORT",
-                "ORDER", null, "출고용 엑셀 " + scope + " " + export.orderCount() + "건", httpRequest);
+                "ORDER", null, "출고용 엑셀 " + scope + " " + export.orderCount() + "건"
+                        + (export.preparedCount() > 0 ? " (상품 준비중으로 " + export.preparedCount() + "건)" : ""),
+                httpRequest);
 
         String today = LocalDate.now(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.BASIC_ISO_DATE);
         ContentDisposition disposition = ContentDisposition.attachment()
@@ -93,6 +98,7 @@ public class AdminOrderController {
         return ResponseEntity.ok()
                 .contentType(XLSX)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header("X-Prepared-Count", Integer.toString(export.preparedCount()))
                 .cacheControl(CacheControl.noStore())
                 .body(export.file());
     }
