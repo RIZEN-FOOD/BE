@@ -145,6 +145,12 @@ app:
     provider: ${ALIMTALK_PROVIDER:none}
     template-paid: ${ALIMTALK_TEMPLATE_PAID:}       # 카카오 심사 통과 후 업체 콘솔의 템플릿 코드
     template-shipped: ${ALIMTALK_TEMPLATE_SHIPPED:}
+    solapi:
+      # 솔라피 콘솔에서 받는 값 (2026-10-07). provider=solapi 일 때 쓴다. ★ 서버 환경변수로만 넣는다.
+      api-key: ${ALIMTALK_SOLAPI_API_KEY:}
+      api-secret: ${ALIMTALK_SOLAPI_API_SECRET:}   # 서명에만 쓴다. 로그·응답에 내보내지 않는다
+      pf-id: ${ALIMTALK_SOLAPI_PF_ID:}             # 카카오 채널 연결 후 나오는 발신 프로필 ID(KA01PF…)
+      from: ${ALIMTALK_SOLAPI_FROM:}               # 솔라피에 등록한 발신번호(숫자만)
 
   image:
     max-file-size-bytes: 10485760   # 10MB
