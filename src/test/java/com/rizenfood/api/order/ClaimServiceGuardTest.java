@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -21,7 +23,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.rizenfood.api.order.dto.ClaimDtos;
 import com.rizenfood.api.payment.Payment;
 import com.rizenfood.api.payment.PaymentGateway;
-import com.rizenfood.api.payment.PaymentRepository;
 import com.rizenfood.api.payment.PaymentRepository;
 import com.rizenfood.api.product.ProductOptionRepository;
 import com.rizenfood.api.product.ProductRepository;
@@ -153,5 +154,31 @@ class ClaimServiceGuardTest {
         assertThatThrownBy(() -> service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, null)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("PG 환불 요청이 실패");
+    }
+
+    @Test
+    @DisplayName("전액 환불은 PG 에 금액 없이 보낸다(전체취소) — 나이스가 금액이 붙으면 부분취소로 본다")
+    void fullRefundSendsNoAmount() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+
+        service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, 12_900));
+
+        verify(paymentGateway).cancel(eq("R20260916-TEST000001"), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("일부 환불은 PG 에 환불 금액을 보낸다(부분취소)")
+    void partialRefundSendsAmount() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+
+        service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, 5_000));
+
+        verify(paymentGateway).cancel(eq("R20260916-TEST000001"), eq(5_000), any());
     }
 }

@@ -194,14 +194,19 @@ public class ClaimService {
      * ★ PG 가 거절하면 그 거래가 이미 환불돼 있는지 한 번 더 본다 (2026-10-07).
      *   대표가 나이스 상점관리자에서 먼저 취소한 주문을 여기서 승인하면 «취소 가능 금액 초과»로 거절됐고,
      *   주문이 «접수됨»에 멈춰 재고도 돌아오지 않았다. PG 에 환불이 끝나 있으면 우리 쪽만 정리한다.
+     *
+     * ★ 전액 환불이면 PG 에 금액을 보내지 않는다(= 전체취소) (2026-10-07).
+     *   나이스는 취소금액(cancelAmt)이 붙으면 결제액과 같아도 부분취소로 처리한다.
+     *   부분취소가 안 되는 결제수단은 «부분취소 불가능금액. 전체취소 이용바람»으로 거절됐다.
      */
     private void cancelPayment(Order order, Payment p, int refundAmount, String reason) {
         if (!Payment.Status.PAID.name().equals(p.getStatus())) {
             p.markFailed(reason);
             return;
         }
+        boolean full = refundAmount >= p.getAmount();
         try {
-            paymentGateway.cancel(order.getOrderNo(), refundAmount, reason);
+            paymentGateway.cancel(order.getOrderNo(), full ? null : refundAmount, reason);
         } catch (com.rizenfood.api.payment.PaymentGateway.PaymentException e) {
             if (!paymentGateway.isRefunded(order.getOrderNo(), refundAmount)) {
                 // 400 으로 관리자 화면에 사유를 보여주고, 트랜잭션은 롤백된다(재고·상태 변경 없음).
@@ -209,7 +214,7 @@ public class ClaimService {
             }
             // PG 에는 이미 환불돼 있다 — 우리 기록만 맞춘다.
         }
-        p.markCancelled(refundAmount < p.getAmount());
+        p.markCancelled(!full);
     }
 
     private Order loadOwned(String orderNo, Long memberId) {
