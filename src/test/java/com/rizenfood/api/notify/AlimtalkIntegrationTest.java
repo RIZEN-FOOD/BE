@@ -39,7 +39,8 @@ import com.rizenfood.api.order.dto.OrderDtos;
         "app.alimtalk.enabled=true",
         "app.alimtalk.provider=test",
         "app.alimtalk.template-paid=TPL_PAID",
-        "app.alimtalk.template-shipped=TPL_SHIPPED"
+        "app.alimtalk.template-shipped=TPL_SHIPPED",
+        "app.alimtalk.template-refunded=TPL_REFUNDED"
 })
 @Testcontainers(disabledWithoutDocker = true)
 class AlimtalkIntegrationTest {
@@ -153,6 +154,30 @@ class AlimtalkIntegrationTest {
         awaitSent(2);
         assertThat(fake.sent).hasSize(2);
         assertThat(fake.sent.get(1).variables()).containsEntry("송장번호", "999988887777");
+    }
+
+    @Test
+    @DisplayName("환불 완료 사건이면 «환불 완료» — 환불 금액이 채워지고, 금액이 없으면 보내지 않는다")
+    void refunded() throws Exception {
+        String orderNo = newOrder("010-6666-7777");
+        Long orderId = jdbc.queryForObject("SELECT id FROM orders WHERE order_no = ?", Long.class, orderNo);
+
+        tx.executeWithoutResult(status -> events.publishEvent(
+                new OrderNotificationEvent(orderId, OrderNotificationEvent.Type.REFUNDED, 29_300)));
+        awaitSent(1);
+
+        assertThat(fake.sent).hasSize(1);
+        AlimtalkMessage m = fake.sent.get(0);
+        assertThat(m.template()).isEqualTo(AlimtalkTemplate.REFUNDED);
+        assertThat(m.templateCode()).isEqualTo("TPL_REFUNDED");
+        assertThat(m.variables()).containsEntry("주문번호", orderNo).containsEntry("환불금액", "29,300");
+        assertThat(m.text()).doesNotContain("#{");
+
+        fake.sent.clear();
+        tx.executeWithoutResult(status -> events.publishEvent(
+                new OrderNotificationEvent(orderId, OrderNotificationEvent.Type.REFUNDED)));
+        Thread.sleep(500);
+        assertThat(fake.sent).as("금액 없는 환불 알림").isEmpty();
     }
 
     @Test

@@ -43,6 +43,7 @@ class ClaimServiceGuardTest {
     private PaymentGateway paymentGateway;
     private PaymentRepository paymentRepository;
     private ClaimService service;
+    private org.springframework.context.ApplicationEventPublisher events;
 
     @BeforeEach
     void setUp() {
@@ -54,7 +55,8 @@ class ClaimServiceGuardTest {
         paymentRepository = mock(PaymentRepository.class);
         service = new ClaimService(orderRepository, claimRepository, paymentRepository,
                 productRepository, optionRepository, mock(StockLedgerRepository.class), paymentGateway,
-                mock(com.rizenfood.api.coupon.CouponService.class));
+                mock(com.rizenfood.api.coupon.CouponService.class),
+                events = mock(org.springframework.context.ApplicationEventPublisher.class));
     }
 
     private Order order(String status) {
@@ -180,5 +182,34 @@ class ClaimServiceGuardTest {
         service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, 5_000));
 
         verify(paymentGateway).cancel(eq("R20260916-TEST000001"), eq(5_000), any());
+    }
+
+    @Test
+    @DisplayName("환불이 끝나면 «환불 완료» 알림 사건을 환불 금액과 함께 낸다")
+    void refundPublishesNotification() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+
+        service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, null));
+
+        verify(events).publishEvent(new com.rizenfood.api.notify.OrderNotificationEvent(
+                10L, com.rizenfood.api.notify.OrderNotificationEvent.Type.REFUNDED, 12_900));
+    }
+
+    @Test
+    @DisplayName("PG 가 거절해 처리하지 않으면 환불 알림도 내지 않는다")
+    void noRefundNoNotification() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+        doThrow(new PaymentGateway.PaymentException("환불이 거절되었습니다."))
+                .when(paymentGateway).cancel(any(), any(), any());
+
+        assertThatThrownBy(() -> service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, null)))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(events, never()).publishEvent(any(Object.class));
     }
 }

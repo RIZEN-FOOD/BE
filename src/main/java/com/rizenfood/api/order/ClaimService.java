@@ -2,12 +2,14 @@ package com.rizenfood.api.order;
 
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.rizenfood.api.common.NotFoundException;
+import com.rizenfood.api.notify.OrderNotificationEvent;
 import com.rizenfood.api.order.dto.ClaimDtos;
 import com.rizenfood.api.payment.Payment;
 import com.rizenfood.api.payment.PaymentRepository;
@@ -36,6 +38,8 @@ public class ClaimService {
     /** 취소·반품 완료 시 PG 환불 요청용 (포트원 또는 모의). */
     private final com.rizenfood.api.payment.PaymentGateway paymentGateway;
     private final com.rizenfood.api.coupon.CouponService couponService;
+    /** 환불이 끝나면 알림톡(«환불 완료»)을 보낸다. 커밋된 뒤에만 나간다 (OrderNotifier). */
+    private final ApplicationEventPublisher events;
 
     public ClaimService(OrderRepository orderRepository,
                         OrderClaimRepository claimRepository,
@@ -44,7 +48,8 @@ public class ClaimService {
                         ProductOptionRepository optionRepository,
                         StockLedgerRepository stockLedgerRepository,
                         com.rizenfood.api.payment.PaymentGateway paymentGateway,
-                        com.rizenfood.api.coupon.CouponService couponService) {
+                        com.rizenfood.api.coupon.CouponService couponService,
+                        ApplicationEventPublisher events) {
         this.orderRepository = orderRepository;
         this.claimRepository = claimRepository;
         this.paymentRepository = paymentRepository;
@@ -53,6 +58,7 @@ public class ClaimService {
         this.stockLedgerRepository = stockLedgerRepository;
         this.paymentGateway = paymentGateway;
         this.couponService = couponService;
+        this.events = events;
     }
 
     // ── 고객 ──────────────────────────────────────────────────
@@ -198,6 +204,8 @@ public class ClaimService {
      * ★ 전액 환불이면 PG 에 금액을 보내지 않는다(= 전체취소) (2026-10-07).
      *   나이스는 취소금액(cancelAmt)이 붙으면 결제액과 같아도 부분취소로 처리한다.
      *   부분취소가 안 되는 결제수단은 «부분취소 불가능금액. 전체취소 이용바람»으로 거절됐다.
+     *
+     * 환불이 끝나면 «환불 완료» 알림톡을 보낸다. 결제 전 주문은 돌려준 돈이 없으니 보내지 않는다.
      */
     private void cancelPayment(Order order, Payment p, int refundAmount, String reason) {
         if (!Payment.Status.PAID.name().equals(p.getStatus())) {
@@ -215,6 +223,7 @@ public class ClaimService {
             // PG 에는 이미 환불돼 있다 — 우리 기록만 맞춘다.
         }
         p.markCancelled(!full);
+        events.publishEvent(new OrderNotificationEvent(order.getId(), OrderNotificationEvent.Type.REFUNDED, refundAmount));
     }
 
     private Order loadOwned(String orderNo, Long memberId) {

@@ -15,18 +15,21 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param provider        none(보내지 않음) | 업체 이름(업체가 정해지면 추가)
  * @param templatePaid    «결제 완료» 템플릿 코드
  * @param templateShipped «상품 출고 안내» 템플릿 코드
+ * @param templateRefunded «환불 완료» 템플릿 코드
  */
 @ConfigurationProperties(prefix = "app.alimtalk")
 public record AlimtalkProperties(
         boolean enabled,
         String provider,
         String templatePaid,
-        String templateShipped) {
+        String templateShipped,
+        String templateRefunded) {
 
     public AlimtalkProperties {
         provider = provider == null || provider.isBlank() ? "none" : provider.trim().toLowerCase();
         templatePaid = templatePaid == null ? "" : templatePaid.trim();
         templateShipped = templateShipped == null ? "" : templateShipped.trim();
+        templateRefunded = templateRefunded == null ? "" : templateRefunded.trim();
     }
 
     /** 이 알림의 템플릿 코드. 비어 있으면 그 알림은 보내지 않는다. */
@@ -34,6 +37,7 @@ public record AlimtalkProperties(
         return switch (template) {
             case PAID -> templatePaid;
             case SHIPPED -> templateShipped;
+            case REFUNDED -> templateRefunded;
         };
     }
 }

@@ -44,6 +44,7 @@ class OrderNotificationBuilder {
         AlimtalkTemplate template = switch (event.type()) {
             case PAID -> AlimtalkTemplate.PAID;
             case SHIPPED -> AlimtalkTemplate.SHIPPED;
+            case REFUNDED -> AlimtalkTemplate.REFUNDED;
         };
         String templateCode = properties.templateCode(template);
         if (templateCode.isEmpty()) {
@@ -70,6 +71,11 @@ class OrderNotificationBuilder {
         values.put("상품명", productSummary(order.getItems()));
         if (template == AlimtalkTemplate.PAID) {
             values.put("결제금액", NumberFormat.getNumberInstance(Locale.KOREA).format(order.getTotalAmount()));
+        } else if (template == AlimtalkTemplate.REFUNDED) {
+            if (event.amount() == null || event.amount() <= 0) {
+                return Optional.empty();
+            }
+            values.put("환불금액", NumberFormat.getNumberInstance(Locale.KOREA).format(event.amount()));
         } else {
             Delivery delivery = deliveryRepository.findByOrderId(order.getId()).orElse(null);
             if (delivery == null || delivery.getTrackingNo() == null || delivery.getCarrier() == null) {

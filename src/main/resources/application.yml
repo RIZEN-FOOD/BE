@@ -145,6 +145,7 @@ app:
     provider: ${ALIMTALK_PROVIDER:none}
     template-paid: ${ALIMTALK_TEMPLATE_PAID:}       # 카카오 심사 통과 후 업체 콘솔의 템플릿 코드
     template-shipped: ${ALIMTALK_TEMPLATE_SHIPPED:}
+    template-refunded: ${ALIMTALK_TEMPLATE_REFUNDED:}
     solapi:
       # 솔라피 콘솔에서 받는 값 (2026-10-07). provider=solapi 일 때 쓴다. ★ 서버 환경변수로만 넣는다.
       api-key: ${ALIMTALK_SOLAPI_API_KEY:}
