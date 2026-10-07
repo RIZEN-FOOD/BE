@@ -6,6 +6,7 @@
 #
 # 테스트가 실패하면 이미지를 만들지 않는다 = 서버에 반영되지 않는다.
 # deploy/ 폴더(compose·Caddy 설정)만 바뀐 푸시는 이미지와 무관하므로 빌드하지 않는다.
+# ★ 빈 커밋(--allow-empty)도 바뀐 파일이 없어 빌드되지 않는다. 다시 돌릴 땐 Actions 의 Run workflow 를 쓴다.
 name: Build API image
 
 on:
