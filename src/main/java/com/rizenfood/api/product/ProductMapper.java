@@ -37,7 +37,7 @@ public class ProductMapper {
                 p.getId(), p.getSlug(), p.getNameKo(),
                 p.getPrice(), p.getDiscountPrice(),
                 p.getStock() == null ? 0 : p.getStock(),
-                computeSoldOut(p), p.isFeatured(), p.isVisible(), p.getSortOrder(),
+                computeSoldOut(p), p.isFeatured(), p.isVisible(), p.isFreeShipping(), p.getSortOrder(),
                 variantUrl(p.getThumbnailKey(), ImageVariant.THUMBNAIL));
     }
 
@@ -115,7 +115,7 @@ public class ProductMapper {
                 p.getPrice(), p.getDiscountPrice(), p.effectivePrice(),
                 p.getWeightG(), p.getServings(), p.getStock(), computeSoldOut(p),
                 p.isSoldOut(),
-                p.isFeatured(), p.isVisible(),
+                p.isFeatured(), p.isVisible(), p.isFreeShipping(),
                 map(p.getImages(), this::toImageItem),
                 map(p.getOptions().stream().filter(ProductOption::isVisible).toList(),
                         o -> toOptionItem(p, o)),

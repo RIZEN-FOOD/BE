@@ -214,6 +214,7 @@ public class ProductService {
         p.setSoldOut(r.soldOut());
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
+        p.setFreeShipping(r.freeShipping());
         p.touch();
 
         if (r.images() != null) {

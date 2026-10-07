@@ -138,7 +138,10 @@ public class OrderService {
         // 배송비는 할인을 뺀 금액으로 정한다. 무료배송 문턱 아래로 내려가면 다시 붙는다.
         ShippingPolicy policy = shippingPolicyRepository
                 .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        int shippingFee = policy != null
+        boolean freeOnly = req.isDirect()
+                ? onlyFreeShipping(linesFromDirect(req.items()).stream().map(Line::product).toList())
+                : onlyFreeShipping(orderableCartProducts(cartId));
+        int shippingFee = policy != null && !freeOnly
                 ? policy.feeFor(itemsAmount, itemsAmount - applied.discount(), false)
                 : 0;
 
@@ -161,6 +164,29 @@ public class OrderService {
             sum += effectiveUnitPrice(product, option) * ci.getQuantity();
         }
         return sum;
+    }
+
+    /** 장바구니에서 지금 주문 가능한 줄의 상품들. orderableItemsAmount 와 같은 기준이다. */
+    private List<Product> orderableCartProducts(Long cartId) {
+        List<Product> out = new ArrayList<>();
+        for (CartItem ci : cartItemRepository.findByCartIdOrderByAddedAtAsc(cartId)) {
+            Product product = ci.getProduct();
+            ProductOption option = ci.getOption();
+            boolean visible = product.isVisible() && (option == null || option.isVisible());
+            int stock = option != null ? option.getStock() : product.getStock();
+            if (visible && stock > 0 && stock >= ci.getQuantity()) {
+                out.add(product);
+            }
+        }
+        return out;
+    }
+
+    /**
+     * 무료배송 상품만 담긴 주문인가 (2026-10-07). 그렇다면 배송비를 받지 않는다.
+     * 일반 상품이 하나라도 섞이면 평소 배송비 규칙 그대로다.
+     */
+    private static boolean onlyFreeShipping(List<Product> products) {
+        return !products.isEmpty() && products.stream().allMatch(Product::isFreeShipping);
     }
 
     /** 재고 부족으로 주문을 만들 수 없을 때. 409 로 매핑된다. */
@@ -202,6 +228,7 @@ public class OrderService {
         boolean hasUnavailable = false;
 
         long rowNo = 0;
+        List<Product> quoted = new ArrayList<>(); // 주문 가능한 줄의 상품 — 배송비 판단용
         for (OrderDtos.DirectItem it : items) {
             Product product = productRepository.findById(it.productId())
                     .orElseThrow(() -> new NotFoundException("상품을 찾을 수 없습니다."));
@@ -213,6 +240,7 @@ public class OrderService {
             if (available) {
                 itemsAmount += lineAmount;
                 totalQuantity += it.quantity();
+                quoted.add(product);
             } else {
                 hasUnavailable = true;
             }
@@ -230,9 +258,10 @@ public class OrderService {
 
         ShippingPolicy policy = shippingPolicyRepository
                 .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        int shippingFee = policy != null ? policy.feeFor(itemsAmount) : 0;
+        boolean freeOnly = onlyFreeShipping(quoted);
+        int shippingFee = policy != null && !freeOnly ? policy.feeFor(itemsAmount) : 0;
         Integer threshold = policy != null ? policy.getFreeThreshold() : null;
-        int freeRemaining = (threshold != null && itemsAmount > 0 && itemsAmount < threshold)
+        int freeRemaining = (!freeOnly && threshold != null && itemsAmount > 0 && itemsAmount < threshold)
                 ? threshold - itemsAmount : 0;
 
         return new CartDtos.CartView(views, totalQuantity, itemsAmount, shippingFee,
@@ -343,7 +372,9 @@ public class OrderService {
         ShippingPolicy policy = shippingPolicyRepository
                 .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
         boolean island = islandZipService.isIsland(req.zipcode());
-        int shippingFee = policy != null
+        // 무료배송 상품만 담긴 주문은 배송비(도서산간 포함)가 없다 (2026-10-07).
+        boolean freeOnly = onlyFreeShipping(lines.stream().map(Line::product).toList());
+        int shippingFee = policy != null && !freeOnly
                 ? policy.feeFor(itemsAmount, itemsAmount - discount, island)
                 : 0;
 

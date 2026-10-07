@@ -123,6 +123,13 @@ public class Product {
     @Column(name = "sold_out", nullable = false)
     private boolean soldOut = false;
 
+    /**
+     * 배송비 받지 않음 — 무료배송 상품 (V39, 2026-10-07).
+     * 이 상품만 담긴 주문은 배송비(도서산간 포함)가 0원이다. 일반 상품이 섞이면 평소 배송비 그대로.
+     */
+    @Column(name = "free_shipping", nullable = false)
+    private boolean freeShipping = false;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -236,6 +243,7 @@ public class Product {
     public int getSortOrder() { return sortOrder; }
     public boolean isVisible() { return visible; }
     public boolean isSoldOut() { return soldOut; }
+    public boolean isFreeShipping() { return freeShipping; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ProductImage> getImages() { return images; }
     public List<ProductOption> getOptions() { return options; }
@@ -269,4 +277,5 @@ public class Product {
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public void setVisible(boolean visible) { this.visible = visible; }
     public void setSoldOut(boolean soldOut) { this.soldOut = soldOut; }
+    public void setFreeShipping(boolean freeShipping) { this.freeShipping = freeShipping; }
 }

@@ -198,6 +198,7 @@ public class CartService {
         int itemsAmount = 0;
         int totalQuantity = 0;
         boolean hasUnavailable = false;
+        java.util.List<Boolean> freeFlags = new java.util.ArrayList<>(); // 주문 가능한 줄의 무료배송 여부
 
         for (CartItem item : items) {
             Product product = item.getProduct();
@@ -229,6 +230,7 @@ public class CartService {
             if (available) {
                 itemsAmount += lineAmount;
                 totalQuantity += qty;
+                freeFlags.add(product.isFreeShipping());
             } else {
                 hasUnavailable = true;
             }
@@ -251,10 +253,12 @@ public class CartService {
 
         ShippingPolicy policy = shippingPolicyRepository
                 .findFirstByVisibleTrueOrderByIdAsc().orElse(null);
-        int shippingFee = policy != null ? policy.feeFor(itemsAmount) : 0;
+        // 무료배송 상품만 담겼으면 배송비 없음 (2026-10-07).
+        boolean freeOnly = !freeFlags.isEmpty() && freeFlags.stream().allMatch(Boolean::booleanValue);
+        int shippingFee = policy != null && !freeOnly ? policy.feeFor(itemsAmount) : 0;
         Integer threshold = policy != null ? policy.getFreeThreshold() : null;
         int freeRemaining = 0;
-        if (threshold != null && itemsAmount > 0 && itemsAmount < threshold) {
+        if (!freeOnly && threshold != null && itemsAmount > 0 && itemsAmount < threshold) {
             freeRemaining = threshold - itemsAmount;
         }
 
