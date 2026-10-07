@@ -160,6 +160,11 @@ public class NicePayGateway implements PaymentGateway {
      *
      * 나이스는 부분취소 시 원거래 tid 와 다른 취소 tid 를 돌려준다. 우리는 원거래 tid 를 그대로 둔다
      * (주문 한 건의 결제를 가리키는 키라서). 취소 내역은 결제 상태로 남는다.
+     *
+     * ★ 취소 요청의 orderId 는 결제 때 쓴 주문번호를 다시 쓰면 안 된다 (2026-10-07).
+     *   나이스 취소 API 의 orderId 는 «취소 거래의 고유번호»라 가맹점이 매번 새로 만들어야 한다
+     *   (가이드: "중복된 orderId 로 재호출 불가"). 주문번호를 그대로 보내 «이미 사용된 OrderId» 로 거절됐다.
+     *   주문번호 뒤에 -C+시각(밀리초)을 붙인다 — 어느 주문의 취소인지 나이스 화면에서도 읽히고, 매번 다르다.
      */
     @Override
     public void cancel(String orderNo, Integer amount, String reason) {
@@ -167,7 +172,7 @@ public class NicePayGateway implements PaymentGateway {
 
         Map<String, Object> body = new HashMap<>();
         body.put("reason", reason == null || reason.isBlank() ? "고객 요청" : reason);
-        body.put("orderId", orderNo);
+        body.put("orderId", cancelOrderId(orderNo));
         if (amount != null) {
             body.put("cancelAmt", amount);
         }
@@ -219,10 +224,14 @@ public class NicePayGateway implements PaymentGateway {
         int paid = res.path("amount").asInt(0);
         int balance = res.path("balanceAmt").asInt(paid);
         boolean refunded = "cancelled".equals(status) || paid - balance >= amount;
-        if (refunded) {
-            log.info("나이스에 이미 취소된 거래: order={} status={} 취소된 금액={}", orderNo, status, paid - balance);
-        }
+        log.info("나이스 거래 조회: order={} status={} 결제액={} 취소가능잔액={} 요청취소액={} → 이미환불={}",
+                orderNo, status, paid, balance, amount, refunded);
         return refunded;
+    }
+
+    /** 취소 거래 고유번호. 주문번호(최대 40자) + "-C" + 밀리초 13자리 = 64자 안. */
+    static String cancelOrderId(String orderNo) {
+        return orderNo + "-C" + System.currentTimeMillis();
     }
 
     // ── 도우미 ────────────────────────────────────────────────
