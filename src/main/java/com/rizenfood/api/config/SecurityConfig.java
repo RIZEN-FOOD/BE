@@ -107,6 +107,15 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * CORS — 우리 사이트(allowed-origins)의 화면에서 부르는 API 만 받는다.
+     *
+     * ★ 나이스페이 결제 결과 주소(/api/payment/nicepay/return)는 빼 둔다 (2026-10-07).
+     *   결제창이 끝나면 나이스페이 페이지가 이 주소로 form POST 를 보내는데, 브라우저가 Origin(나이스페이 도메인)을
+     *   붙여서 «다른 사이트의 요청»으로 보고 403 Invalid CORS request 로 막았다 → 운영 결제가 승인 단계로 못 넘어갔다.
+     *   CORS 는 다른 사이트 스크립트가 API 를 몰래 부르는 걸 막는 장치라 이 주소엔 맞지 않는다.
+     *   이 주소의 안전은 서버가 나이스페이에 직접 승인 요청·금액 대조·서명 검증하는 쪽이 맡는다(NicePayReturnController).
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -119,8 +128,14 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        return source;
+        // null 을 돌려주면 그 요청은 CORS 검사를 하지 않는다.
+        return request -> PAYMENT_RETURN_PATH.equals(request.getRequestURI())
+                ? null
+                : source.getCorsConfiguration(request);
     }
+
+    /** 결제창(다른 사이트)이 결과를 form POST 로 보내는 주소. CORS 검사에서 뺀다. */
+    private static final String PAYMENT_RETURN_PATH = "/api/payment/nicepay/return";
 
     /** 비밀번호 해시. 평문·MD5·SHA 금지 (기획서 §6.2). */
     @Bean
