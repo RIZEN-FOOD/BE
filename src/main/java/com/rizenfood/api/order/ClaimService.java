@@ -190,6 +190,10 @@ public class ClaimService {
     /**
      * 결제 취소(환불). 결제 완료된 건만 PG 에 환불을 요청한다.
      * 결제 전 주문은 PG 에 되돌릴 돈이 없으므로 상태만 정리한다.
+     *
+     * ★ PG 가 거절하면 그 거래가 이미 환불돼 있는지 한 번 더 본다 (2026-10-07).
+     *   대표가 나이스 상점관리자에서 먼저 취소한 주문을 여기서 승인하면 «취소 가능 금액 초과»로 거절됐고,
+     *   주문이 «접수됨»에 멈춰 재고도 돌아오지 않았다. PG 에 환불이 끝나 있으면 우리 쪽만 정리한다.
      */
     private void cancelPayment(Order order, Payment p, int refundAmount, String reason) {
         if (!Payment.Status.PAID.name().equals(p.getStatus())) {
@@ -199,8 +203,11 @@ public class ClaimService {
         try {
             paymentGateway.cancel(order.getOrderNo(), refundAmount, reason);
         } catch (com.rizenfood.api.payment.PaymentGateway.PaymentException e) {
-            // 400 으로 관리자 화면에 사유를 보여주고, 트랜잭션은 롤백된다(재고·상태 변경 없음).
-            throw new IllegalArgumentException("PG 환불 요청이 실패해 처리하지 않았습니다. " + e.getMessage());
+            if (!paymentGateway.isRefunded(order.getOrderNo(), refundAmount)) {
+                // 400 으로 관리자 화면에 사유를 보여주고, 트랜잭션은 롤백된다(재고·상태 변경 없음).
+                throw new IllegalArgumentException("PG 환불 요청이 실패해 처리하지 않았습니다. " + e.getMessage());
+            }
+            // PG 에는 이미 환불돼 있다 — 우리 기록만 맞춘다.
         }
         p.markCancelled(refundAmount < p.getAmount());
     }

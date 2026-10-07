@@ -1,9 +1,11 @@
 package com.rizenfood.api.order;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -17,7 +19,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.rizenfood.api.order.dto.ClaimDtos;
+import com.rizenfood.api.payment.Payment;
 import com.rizenfood.api.payment.PaymentGateway;
+import com.rizenfood.api.payment.PaymentRepository;
 import com.rizenfood.api.payment.PaymentRepository;
 import com.rizenfood.api.product.ProductOptionRepository;
 import com.rizenfood.api.product.ProductRepository;
@@ -36,6 +40,7 @@ class ClaimServiceGuardTest {
     private ProductRepository productRepository;
     private ProductOptionRepository optionRepository;
     private PaymentGateway paymentGateway;
+    private PaymentRepository paymentRepository;
     private ClaimService service;
 
     @BeforeEach
@@ -45,7 +50,8 @@ class ClaimServiceGuardTest {
         productRepository = mock(ProductRepository.class);
         optionRepository = mock(ProductOptionRepository.class);
         paymentGateway = mock(PaymentGateway.class);
-        service = new ClaimService(orderRepository, claimRepository, mock(PaymentRepository.class),
+        paymentRepository = mock(PaymentRepository.class);
+        service = new ClaimService(orderRepository, claimRepository, paymentRepository,
                 productRepository, optionRepository, mock(StockLedgerRepository.class), paymentGateway,
                 mock(com.rizenfood.api.coupon.CouponService.class));
     }
@@ -108,5 +114,44 @@ class ClaimServiceGuardTest {
                 .hasMessageContaining("이미 취소·환불");
 
         verify(productRepository, never()).increaseStock(anyLong(), anyInt());
+    }
+
+    private Payment paidPayment() {
+        Payment p = new Payment(10L, "NICEPAY", 12_900);
+        p.markPaid("tid-1", "card", null);
+        return p;
+    }
+
+    @Test
+    @DisplayName("PG 가 환불을 거절했지만 이미 환불돼 있으면(관리자 화면에서 먼저 취소) 우리 쪽만 정리한다")
+    void alreadyRefundedAtPgCompletesClaim() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+        doThrow(new PaymentGateway.PaymentException("환불이 거절되었습니다. 취소금액이 취소가능금액보다 큼"))
+                .when(paymentGateway).cancel(any(), any(), any());
+        when(paymentGateway.isRefunded("R20260916-TEST000001", 12_900)).thenReturn(true);
+
+        service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, null));
+
+        assertThat(order.getStatus()).isEqualTo("CANCELLED");
+        verify(productRepository).increaseStock(1L, 1);
+    }
+
+    @Test
+    @DisplayName("PG 가 거절했고 환불도 안 돼 있으면 처리하지 않는다(재고·상태 그대로)")
+    void pgRejectAndNotRefundedIsNotProcessed() {
+        Order order = order("PAID");
+        when(claimRepository.findById(3L)).thenReturn(Optional.of(claim("REQUESTED")));
+        when(orderRepository.findById(10L)).thenReturn(Optional.of(order));
+        when(paymentRepository.findByOrderId(10L)).thenReturn(Optional.of(paidPayment()));
+        doThrow(new PaymentGateway.PaymentException("환불이 거절되었습니다."))
+                .when(paymentGateway).cancel(any(), any(), any());
+        when(paymentGateway.isRefunded(any(), anyInt())).thenReturn(false);
+
+        assertThatThrownBy(() -> service.process(3L, new ClaimDtos.ProcessRequest("COMPLETED", null, null)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("PG 환불 요청이 실패");
     }
 }

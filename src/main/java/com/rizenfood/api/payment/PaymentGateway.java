@@ -37,6 +37,19 @@ public interface PaymentGateway {
      */
     void cancel(String orderNo, Integer amount, String reason);
 
+    /**
+     * PG 쪽에 이미 환불돼 있는가 — 취소 요청이 거절됐을 때 한 번 더 확인한다 (2026-10-07).
+     *
+     * 대표가 PG 관리자 화면에서 먼저 취소하면 우리 취소 요청은 «취소 가능 금액 초과»로 거절된다.
+     * 그때 PG 기록이 정말 환불돼 있으면 우리 쪽(재고·주문·결제 상태)만 정리하면 된다.
+     * 확인할 수 없는 PG 는 false — 그러면 처리하지 않고 사유를 관리자에게 보여준다.
+     *
+     * @param amount 우리가 환불하려던 금액. 이 금액 이상이 이미 취소돼 있어야 true 다
+     */
+    default boolean isRefunded(String orderNo, int amount) {
+        return false;
+    }
+
     /** 승인 결과. */
     record Approval(String tid, int approvedAmount, String method, String receiptUrl) {
     }

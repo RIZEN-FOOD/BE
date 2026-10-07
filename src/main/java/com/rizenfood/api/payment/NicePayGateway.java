@@ -195,6 +195,36 @@ public class NicePayGateway implements PaymentGateway {
         }
     }
 
+    /**
+     * 거래 조회(GET /v1/payments/{tid})로 이미 취소됐는지 본다.
+     * status 가 cancelled 이거나, 결제액에서 취소 가능 잔액(balanceAmt)을 뺀 «이미 취소된 금액»이 요청액 이상이면 환불된 것이다.
+     */
+    @Override
+    public boolean isRefunded(String orderNo, int amount) {
+        String tid = tidOf(orderNo);
+        JsonNode res;
+        try {
+            res = client().get()
+                    .uri("/v1/payments/{tid}", tid)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (RestClientException e) {
+            log.warn("나이스 거래 조회 실패: order={} tid={}", orderNo, tid, e);
+            return false;
+        }
+        if (res == null || !OK.equals(res.path("resultCode").asText(""))) {
+            return false;
+        }
+        String status = res.path("status").asText("");
+        int paid = res.path("amount").asInt(0);
+        int balance = res.path("balanceAmt").asInt(paid);
+        boolean refunded = "cancelled".equals(status) || paid - balance >= amount;
+        if (refunded) {
+            log.info("나이스에 이미 취소된 거래: order={} status={} 취소된 금액={}", orderNo, status, paid - balance);
+        }
+        return refunded;
+    }
+
     // ── 도우미 ────────────────────────────────────────────────
 
     /** 인증 단계에서 저장해 둔 거래키. 없으면 아직 결제창을 거치지 않은 것이다. */
