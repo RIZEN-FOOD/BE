@@ -16,4 +16,16 @@ public interface OrderClaimRepository extends JpaRepository<OrderClaim, Long> {
     Page<OrderClaim> findAllByOrderByRequestedAtDesc(Pageable pageable);
 
     Page<OrderClaim> findByStatusOrderByRequestedAtDesc(String status, Pageable pageable);
+
+    /** 기간 안에 환불까지 끝난 취소·반품 (매출에서 뺀다). */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT c FROM OrderClaim c
+             WHERE c.status = 'COMPLETED'
+               AND c.type IN ('CANCEL', 'RETURN')
+               AND c.refundAmount > 0
+               AND c.processedAt >= :from AND c.processedAt < :to
+             ORDER BY c.processedAt
+            """)
+    List<OrderClaim> findRefundsBetween(@org.springframework.data.repository.query.Param("from") java.time.Instant from,
+                                        @org.springframework.data.repository.query.Param("to") java.time.Instant to);
 }

@@ -54,6 +54,13 @@ public class OrderItem {
     @Column(name = "line_amount", nullable = false)
     private int lineAmount;
 
+    /**
+     * 주문 당시 면세 여부 스냅샷 (V40, 2026-10-12).
+     * null = 구분을 도입하기 전 주문. 매출 집계는 그때 그 상품의 지금 설정을 따른다.
+     */
+    @Column(name = "tax_free")
+    private Boolean taxFree;
+
     /** 바깥 서비스의 상품주문번호 (V36). 네이버페이는 발송·취소·반품을 이 번호로 주고받는다. */
     @Column(name = "external_product_order_id", length = 64)
     private String externalProductOrderId;
@@ -74,6 +81,15 @@ public class OrderItem {
         this.lineAmount = unitPriceSnapshot * quantity;
     }
 
+    /** 면세 여부까지 스냅샷으로 남기는 생성자. 주문 생성은 이쪽을 쓴다. */
+    public OrderItem(Long productId, Long productOptionId, String productNameSnapshot,
+                     String optionNameSnapshot, String thumbnailKeySnapshot,
+                     int unitPriceSnapshot, int quantity, boolean taxFree) {
+        this(productId, productOptionId, productNameSnapshot, optionNameSnapshot, thumbnailKeySnapshot,
+                unitPriceSnapshot, quantity);
+        this.taxFree = taxFree;
+    }
+
     void attachTo(Order order) {
         this.order = order;
     }
@@ -87,6 +103,7 @@ public class OrderItem {
     public int getUnitPriceSnapshot() { return unitPriceSnapshot; }
     public int getQuantity() { return quantity; }
     public int getLineAmount() { return lineAmount; }
+    public Boolean getTaxFree() { return taxFree; }
     public String getExternalProductOrderId() { return externalProductOrderId; }
     public void setExternalProductOrderId(String v) { this.externalProductOrderId = v; }
 }

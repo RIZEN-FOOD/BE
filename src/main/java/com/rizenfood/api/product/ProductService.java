@@ -215,6 +215,7 @@ public class ProductService {
         p.setFeatured(r.featured());
         p.setVisible(r.visible());
         p.setFreeShipping(r.freeShipping());
+        p.setTaxFree(r.taxFree());
         p.touch();
 
         if (r.images() != null) {

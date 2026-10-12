@@ -130,6 +130,13 @@ public class Product {
     @Column(name = "free_shipping", nullable = false)
     private boolean freeShipping = false;
 
+    /**
+     * 면세 상품 (V40, 2026-10-12). 기본은 과세.
+     * 주문할 때 주문 상품에 스냅샷으로 남고, 관리자 [매출]에서 과세·면세를 나눠 보여준다.
+     */
+    @Column(name = "tax_free", nullable = false)
+    private boolean taxFree = false;
+
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private Instant createdAt;
 
@@ -244,6 +251,7 @@ public class Product {
     public boolean isVisible() { return visible; }
     public boolean isSoldOut() { return soldOut; }
     public boolean isFreeShipping() { return freeShipping; }
+    public boolean isTaxFree() { return taxFree; }
     public Instant getCreatedAt() { return createdAt; }
     public List<ProductImage> getImages() { return images; }
     public List<ProductOption> getOptions() { return options; }
@@ -278,4 +286,5 @@ public class Product {
     public void setVisible(boolean visible) { this.visible = visible; }
     public void setSoldOut(boolean soldOut) { this.soldOut = soldOut; }
     public void setFreeShipping(boolean freeShipping) { this.freeShipping = freeShipping; }
+    public void setTaxFree(boolean taxFree) { this.taxFree = taxFree; }
 }

@@ -408,7 +408,8 @@ public class OrderService {
                     ln.option != null ? ln.option.getName() : null,
                     ln.product.getThumbnailKey(),
                     ln.unitPrice,
-                    ln.qty));
+                    ln.qty,
+                    ln.product.isTaxFree()));
         }
 
         Order saved = persistWithUniqueOrderNo(order);

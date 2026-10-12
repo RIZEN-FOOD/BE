@@ -34,6 +34,25 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     /** 출고용 엑셀. 한 번에 최대 1,000건, 오래된 주문부터. */
     java.util.List<Order> findTop1000ByStatusInOrderByOrderedAtAsc(java.util.Collection<String> statuses);
 
+    // ── 매출 (과세·면세) ──────────────────────────────────────
+
+    /**
+     * 기간 안에 결제된 자사몰 주문 (상품까지 한 번에). 나중에 취소됐어도 결제일 매출로 잡고,
+     * 환불은 처리일에 따로 뺀다 (SalesService).
+     */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items
+             WHERE o.paidAt >= :from AND o.paidAt < :to
+               AND o.channel = 'MALL'
+             ORDER BY o.paidAt
+            """)
+    java.util.List<Order> findPaidBetween(@org.springframework.data.repository.query.Param("from") java.time.Instant from,
+                                          @org.springframework.data.repository.query.Param("to") java.time.Instant to);
+
+    /** 주문 여러 건을 상품까지 한 번에. */
+    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id IN :ids")
+    java.util.List<Order> findWithItemsByIdIn(@org.springframework.data.repository.query.Param("ids") java.util.Collection<Long> ids);
+
     // ── 할인코드 ──────────────────────────────────────────────
 
     /**
