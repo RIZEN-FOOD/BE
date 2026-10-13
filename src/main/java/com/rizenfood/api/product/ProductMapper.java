@@ -148,6 +148,7 @@ public class ProductMapper {
     private ProductDtos.ImageItem toImageItem(ProductImage i) {
         return new ProductDtos.ImageItem(
                 variantUrl(i.getImageKey(), ImageVariant.MEDIUM),
+                variantUrl(i.getImageKey(), ImageVariant.THUMBNAIL),
                 i.getImageKey(), i.getAltText(), i.getType());
     }
 

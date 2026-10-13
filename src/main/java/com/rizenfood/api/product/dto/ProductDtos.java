@@ -136,7 +136,8 @@ public final class ProductDtos {
     }
 
     /** baseKey 는 관리자 수정 폼이 기존 이미지를 다시 저장할 때 쓴다. */
-    public record ImageItem(String url, String baseKey, String altText, String type) {
+    /** @param thumbUrl 작은 자리(갤러리 썸네일)용 400px 사진 (2026-10-13). url 은 1000px. */
+    public record ImageItem(String url, String thumbUrl, String baseKey, String altText, String type) {
     }
 
     public record OptionItem(Long id, String name, int price, int stock, boolean soldOut) {
