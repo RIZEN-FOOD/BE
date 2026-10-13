@@ -60,7 +60,9 @@ public final class ProductDtos {
             /** 상세 페이지로 보낼 수 있는지(상품 공개 여부). 출시 예정처럼 비공개면 false. */
             boolean linkable,
             /** 배너 아래 영양성분 그래프용. 관리자 상품 화면에서 입력한 값 그대로. 없으면 null. */
-            NutritionItem nutrition) {
+            NutritionItem nutrition,
+            /** 표시 순서. 이미지 한 장 슬라이드(V41)와 섞어 정렬할 때 쓴다. */
+            int heroSort) {
     }
 
     // ── 관리자: 메인 히어로 배너 관리 ─────────────────────
