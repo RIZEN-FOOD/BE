@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -24,9 +23,11 @@ import com.rizenfood.api.product.ProductRepository;
  * 관리자 [매출] — 기간별 과세·면세 매출 (2026-10-12).
  *
  * 부가세 신고 때 면세 매출(예: 플레인)과 과세 매출을 나눠야 해서 만들었다.
- *   결제 — 결제일에 매출로 잡는다. 나중에 취소돼도 결제일 매출은 그대로 두고,
- *   환불 — 취소·반품 환불이 끝난 날(처리일)에 뺀다.
- * 그래서 두 기간에 걸친 주문도 각 기간 합계가 맞는다.
+ * 결제일에 매출로 잡는다.
+ *
+ * ★ 취소·환불된 주문은 매출에 넣지 않는다 (2026-10-13 대표 확인). 결제일과 취소일이 다른 달이어도
+ *   결제한 달에서 빠진다 — 지금 상태가 취소·환불이면 그 주문은 없던 것으로 본다.
+ * ★ 배송비는 면세 상품만 산 주문이면 면세, 과세 상품이 섞이면 과세다 (TaxSplit).
  *
  * 자사몰(MALL) 주문만 센다. 스마트스토어 매출은 네이버 정산 자료로 따로 신고한다.
  * 면세 여부는 주문 상품의 스냅샷을 따르고, 구분 도입(V40) 전 주문은 상품의 지금 설정을 따른다.
@@ -43,14 +44,10 @@ public class SalesService {
     static final int MAX_SCREEN_LINES = 1000;
 
     private final OrderRepository orderRepository;
-    private final OrderClaimRepository claimRepository;
     private final ProductRepository productRepository;
 
-    public SalesService(OrderRepository orderRepository,
-                        OrderClaimRepository claimRepository,
-                        ProductRepository productRepository) {
+    public SalesService(OrderRepository orderRepository, ProductRepository productRepository) {
         this.orderRepository = orderRepository;
-        this.claimRepository = claimRepository;
         this.productRepository = productRepository;
     }
 
@@ -85,52 +82,32 @@ public class SalesService {
         Instant end = to.plusDays(1).atStartOfDay(KST).toInstant();
 
         List<Order> paid = orderRepository.findPaidBetween(start, end);
-        List<OrderClaim> refunds = claimRepository.findRefundsBetween(start, end);
-
-        Map<Long, Order> refundOrders = new HashMap<>();
-        Set<Long> refundOrderIds = new HashSet<>();
-        refunds.forEach(c -> refundOrderIds.add(c.getOrderId()));
-        if (!refundOrderIds.isEmpty()) {
-            orderRepository.findWithItemsByIdIn(refundOrderIds).forEach(o -> refundOrders.put(o.getId(), o));
-        }
-
-        Predicate<OrderItem> isTaxFree = taxFreeRule(paid, refundOrders.values());
+        int excluded = (int) orderRepository.countCancelledPaidBetween(start, end);
+        Predicate<OrderItem> isTaxFree = taxFreeRule(paid);
 
         List<SalesDtos.Line> lines = new ArrayList<>();
-        int taxFreeSales = 0, taxableGoods = 0, shipping = 0, discount = 0;
+        int freeGoods = 0, freeShip = 0, taxGoods = 0, taxShip = 0, discount = 0;
         for (Order o : paid) {
             TaxSplit s = TaxSplit.of(o, isTaxFree);
-            taxFreeSales += s.taxFree();
-            taxableGoods += s.taxableGoods();
-            shipping += s.shippingFee();
-            discount += o.getDiscountAmount();
-            lines.add(new SalesDtos.Line("PAID", o.getPaidAt(), o.getOrderNo(), o.getStatus(),
-                    s.taxFree(), s.taxableGoods(), s.shippingFee(), s.taxable(), o.getTotalAmount()));
-        }
-
-        int refundCount = 0, taxFreeRefund = 0, taxableRefund = 0;
-        for (OrderClaim c : refunds) {
-            Order o = refundOrders.get(c.getOrderId());
-            // 결제 전 취소는 돌려준 돈이 없다 (요청에 금액이 적혀 있어도).
-            if (o == null || o.getPaidAt() == null || !Order.Channel.MALL.name().equals(o.getChannel())) {
-                continue;
+            freeGoods += s.taxFreeGoods();
+            taxGoods += s.taxableGoods();
+            if (s.shippingTaxFree()) {
+                freeShip += s.shippingFee();
+            } else {
+                taxShip += s.shippingFee();
             }
-            TaxSplit.Refund r = TaxSplit.of(o, isTaxFree).refund(o.getTotalAmount(), c.getRefundAmount());
-            refundCount++;
-            taxFreeRefund += r.taxFree();
-            taxableRefund += r.taxable();
-            lines.add(new SalesDtos.Line("REFUND", c.getProcessedAt(), o.getOrderNo(), o.getStatus(),
-                    -r.taxFree(), null, null, -r.taxable(), -(r.taxFree() + r.taxable())));
+            discount += o.getDiscountAmount();
+            lines.add(new SalesDtos.Line(o.getPaidAt(), o.getOrderNo(), o.getStatus(),
+                    s.taxFreeGoods(), s.taxableGoods(), s.shippingFee(), s.shippingTaxFree(),
+                    s.taxFree(), s.taxable(), o.getTotalAmount()));
         }
-        lines.sort(Comparator.comparing(SalesDtos.Line::at, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        int taxFreeNet = taxFreeSales - taxFreeRefund;
-        int taxableNet = taxableGoods + shipping - taxableRefund;
-        int supply = (int) Math.round(taxableNet / 1.1);
+        int taxFree = freeGoods + freeShip;
+        int taxable = taxGoods + taxShip;
+        int supply = (int) Math.round(taxable / 1.1);
         SalesDtos.Totals totals = new SalesDtos.Totals(
-                paid.size(), taxFreeSales, taxableGoods, shipping, discount,
-                refundCount, taxFreeRefund, taxableRefund,
-                taxFreeNet, taxableNet, supply, taxableNet - supply, taxFreeNet + taxableNet);
+                paid.size(), excluded, freeGoods, freeShip, taxGoods, taxShip, discount,
+                taxFree, taxable, supply, taxable - supply, taxFree + taxable);
         return new SalesDtos.Report(from, to, totals, lines, false);
     }
 
@@ -138,14 +115,12 @@ public class SalesService {
      * 주문 상품이 면세인가. 스냅샷이 있으면 그대로, 없으면(V40 전 주문) 상품의 지금 설정.
      * 상품이 지워졌으면 과세로 본다.
      */
-    private Predicate<OrderItem> taxFreeRule(List<Order> paid, java.util.Collection<Order> refunded) {
+    private Predicate<OrderItem> taxFreeRule(List<Order> orders) {
         Set<Long> unknown = new HashSet<>();
-        for (List<Order> group : List.of(paid, List.copyOf(refunded))) {
-            for (Order o : group) {
-                for (OrderItem it : o.getItems()) {
-                    if (it.getTaxFree() == null && it.getProductId() != null) {
-                        unknown.add(it.getProductId());
-                    }
+        for (Order o : orders) {
+            for (OrderItem it : o.getItems()) {
+                if (it.getTaxFree() == null && it.getProductId() != null) {
+                    unknown.add(it.getProductId());
                 }
             }
         }

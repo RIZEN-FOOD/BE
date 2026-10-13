@@ -17,39 +17,41 @@ public final class SalesDtos {
     }
 
     /**
-     * 기간 합계. 결제는 결제일, 환불은 처리일 기준이다.
+     * 기간 합계 (결제일 기준). 취소·환불된 주문은 매출에서 뺀다 (2026-10-13 대표 확인).
      *
-     * @param taxableSupply 과세 순매출의 공급가액 (÷1.1)
-     * @param taxableVat    과세 순매출의 부가세
+     * @param excludedCount  기간 안에 결제됐지만 취소·환불돼 뺀 주문 수
+     * @param taxableSupply  과세 매출의 공급가액 (÷1.1)
+     * @param taxableVat     과세 매출의 부가세
      */
     public record Totals(
-            int paidCount,
-            int taxFreeSales,
-            int taxableGoodsSales,
-            int shippingFee,
+            int orderCount,
+            int excludedCount,
+            int taxFreeGoods,
+            int taxFreeShipping,
+            int taxableGoods,
+            int taxableShipping,
             int discount,
-            int refundCount,
-            int taxFreeRefund,
-            int taxableRefund,
-            int taxFreeNet,
-            int taxableNet,
+            int taxFree,
+            int taxable,
             int taxableSupply,
             int taxableVat,
-            int totalNet) {
+            int total) {
     }
 
     /**
-     * 내역 한 줄. 결제(PAID)는 양수, 환불(REFUND)은 음수다.
-     * 환불은 상품·배송비로 나누지 않으므로 taxableGoods·shippingFee 가 비어 있다.
+     * 주문 한 건.
+     *
+     * @param shippingTaxFree 배송비가 면세인가 (면세 상품만 산 주문)
      */
     public record Line(
-            String kind,
-            Instant at,
+            Instant paidAt,
             String orderNo,
             String orderStatus,
+            int taxFreeGoods,
+            int taxableGoods,
+            int shippingFee,
+            boolean shippingTaxFree,
             int taxFree,
-            Integer taxableGoods,
-            Integer shippingFee,
             int taxable,
             int total) {
     }

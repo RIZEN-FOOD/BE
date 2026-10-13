@@ -37,21 +37,27 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // ── 매출 (과세·면세) ──────────────────────────────────────
 
     /**
-     * 기간 안에 결제된 자사몰 주문 (상품까지 한 번에). 나중에 취소됐어도 결제일 매출로 잡고,
-     * 환불은 처리일에 따로 뺀다 (SalesService).
+     * 기간 안에 결제된 자사몰 주문 (상품까지 한 번에). 취소·환불된 주문은 매출이 아니라 뺀다 (SalesService).
      */
     @org.springframework.data.jpa.repository.Query("""
             SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items
              WHERE o.paidAt >= :from AND o.paidAt < :to
                AND o.channel = 'MALL'
+               AND o.status NOT IN ('CANCELLED', 'REFUNDED')
              ORDER BY o.paidAt
             """)
     java.util.List<Order> findPaidBetween(@org.springframework.data.repository.query.Param("from") java.time.Instant from,
                                           @org.springframework.data.repository.query.Param("to") java.time.Instant to);
 
-    /** 주문 여러 건을 상품까지 한 번에. */
-    @org.springframework.data.jpa.repository.Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.items WHERE o.id IN :ids")
-    java.util.List<Order> findWithItemsByIdIn(@org.springframework.data.repository.query.Param("ids") java.util.Collection<Long> ids);
+    /** 기간 안에 결제됐지만 취소·환불돼 매출에서 뺀 자사몰 주문 수 (화면 안내용). */
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COUNT(o) FROM Order o
+             WHERE o.paidAt >= :from AND o.paidAt < :to
+               AND o.channel = 'MALL'
+               AND o.status IN ('CANCELLED', 'REFUNDED')
+            """)
+    long countCancelledPaidBetween(@org.springframework.data.repository.query.Param("from") java.time.Instant from,
+                                   @org.springframework.data.repository.query.Param("to") java.time.Instant to);
 
     // ── 할인코드 ──────────────────────────────────────────────
 
