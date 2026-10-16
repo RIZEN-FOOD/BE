@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.rizenfood.api.common.NotFoundException;
+import com.rizenfood.api.notify.ClaimRequestedEvent;
 import com.rizenfood.api.notify.OrderNotificationEvent;
 import com.rizenfood.api.order.dto.ClaimDtos;
 import com.rizenfood.api.payment.Payment;
@@ -88,6 +89,8 @@ public class ClaimService {
 
         OrderClaim claim = claimRepository.save(
                 new OrderClaim(order.getId(), type, req.reasonCode(), blankToNull(req.reasonText())));
+        // 운영자에게 문자로 알린다 (커밋된 뒤, AdminNotifier).
+        events.publishEvent(new ClaimRequestedEvent(order.getId(), type.name()));
         return toView(claim, order.getOrderNo());
     }
 

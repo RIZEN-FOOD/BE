@@ -138,6 +138,11 @@ app:
     common-key: ${NAVERPAY_COMMON_KEY:}      # 네이버 공통 인증키 — 유입 경로 스크립트(비우면 안 싣는다)
     tax-type: ${NAVERPAY_TAX_TYPE:TAX}       # TAX | TAX_FREE | ZERO_TAX
 
+  admin-notify:
+    # 운영자 알림 문자 (2026-10-16) — 새 주문·취소·반품·교환 요청. 솔라피 키·발신번호는 아래 alimtalk.solapi 값을 쓴다.
+    enabled: ${ADMIN_NOTIFY_ENABLED:false}
+    phones: ${ADMIN_NOTIFY_PHONES:}            # 받을 번호, 쉼표로 여러 개 (숫자만)
+
   alimtalk:
     # 카카오 알림톡 — 결제 완료·상품 출고 안내 (2026-10-06). 발송 대행사(공식 딜러사)를 거쳐 보낸다.
     # 꺼져 있으면(기본) 아무것도 보내지 않는다. provider=none 이면 켜도 로그만 남긴다(업체 미정).
